@@ -70,19 +70,19 @@ async function startRabbitMQConsumer() {
               from: `"Cake Delight" <${process.env.GMAIL_USER}>`,
               to: eventData.customerEmail,
               subject: `Your Order Confirmation #${eventData.orderId}`,
-              text: `Order #${eventData.orderId} confirmed. Total: $${eventData.totalAmount}`,
+              text: `Order #${eventData.orderId} confirmed. Total: ₹${eventData.totalAmount}`,
               html: `
                 <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
                     <h2 style="color: #ff6b6b;">Cake Delight</h2>
                     <h3>Thank you for your order!</h3>
                     <p>Your order with orderID<b>#${eventData.orderId}</b> has been confirmed.</p>
-                    <p><b>Total Amount Paid:</b> $${eventData.totalAmount}</p>
+                    <p><b>Total Amount Paid:</b> ₹${eventData.totalAmount}</p>
                 </div>
               `,
             });
             logger.info(`Email successfully sent to ${eventData.customerEmail}`);
           } else {
-            logger.info(`[MOCK EMAIL OUTBOUND] To: ${eventData.customerEmail} | Body: Order #${eventData.orderId} confirmed. Total: $${eventData.totalAmount}`);
+            logger.info(`[MOCK EMAIL OUTBOUND] To: ${eventData.customerEmail} | Body: Order #${eventData.orderId} confirmed. Total: ₹${eventData.totalAmount}`);
           }
 
           const notification = new Notification({

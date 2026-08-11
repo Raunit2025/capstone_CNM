@@ -36,6 +36,18 @@ async function initDatabase() {
                 )
             `);
 
+    await pool.query(`
+          CREATE TABLE IF NOT EXISTS basket_items (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id VARCHAR(255) NOT NULL,
+            cake_id VARCHAR(255) NOT NULL,
+            cake_name VARCHAR(255) NOT NULL,
+            price DECIMAL(10, 2) NOT NULL,
+            quantity INT NOT NULL,
+            UNIQUE KEY unique_user_cake (user_id, cake_id)
+          )
+      `);
+
     logger.info("MySQL Database tables initialized successfully");
     return pool;
   } catch (error) {

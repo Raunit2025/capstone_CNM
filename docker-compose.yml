@@ -17,6 +17,8 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - ./catalog-service/seed.js:/docker-entrypoint-initdb.d/seed.js:ro
 
   mysql:
     image: mysql:8.0

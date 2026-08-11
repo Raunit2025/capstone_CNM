@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rating-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rating-service
+  template:
+    metadata:
+      labels:
+        app: rating-service
+    spec:
+      containers:
+        - name: rating-service
+          image: rating-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3003
+          env:
+            - name: MONGO_URI
+              value: "mongodb://admin:password@mongodb-service:27017/rating_db?authSource=admin"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rating-service
+spec:
+  type: ClusterIP
+  selector:
+    app: rating-service
+  ports:
+    - port: 3003
+      targetPort: 3003

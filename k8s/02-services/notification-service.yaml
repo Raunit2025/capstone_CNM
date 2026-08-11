@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: notification-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3004
+          env:
+            - name: MONGO_URI
+              value: "mongodb://admin:password@mongodb-service:27017/notification_db?authSource=admin"
+            - name: RABBITMQ_URL
+              value: "amqp://guest:guest@rabbitmq-service:5672"
+            - name: GMAIL_USER
+              value: "" #If you want to use Gmail for sending recipe in email then add your Gmail email address here
+            - name: GMAIL_APP_PASSWORD
+              value: "" # and the app password here. In the code i have already implemented the logic to use it with a fallback to MOCK email.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+spec:
+  type: ClusterIP
+  selector:
+    app: notification-service
+  ports:
+    - port: 3004
+      targetPort: 3004

@@ -15,64 +15,92 @@ app.use((req, res, next)=>{
 
 let dbPool;
 
-const baskets = {};
-
 //API to get basket and total Amount for userId
-app.get('/api/orders/basket/:userId',(req,res)=>{
-    const {userId} = req.params;
-    const basket = baskets[userId] || [];
+app.get('/api/orders/basket/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const [basket] = await dbPool.query(
+            'SELECT cake_id as cakeId, cake_name as cakeName, price, quantity FROM basket_items WHERE user_id = ?', 
+            [userId]
+        );
 
-    const totalAmount = basket.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    logger.info('Basket retrieved',{userId, itemCount: basket.length,correlationId: req.correlationId});
-    res.status(200).json({basket, totalAmount});
+        const totalAmount = basket.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0);
+        logger.info('Basket retrieved', { userId, itemCount: basket.length, correlationId: req.correlationId });
+        res.status(200).json({ basket, totalAmount });
+    } catch (error) {
+        logger.error('Error fetching basket', { error: error.message, correlationId: req.correlationId });
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
 });
 
 //API to add to basket or update the quantity if item already exists
-app.post('/api/orders/basket/:userId',(req,res)=>{
-    const {userId} = req.params;
-    const {cakeId, cakeName, price, quantity} = req.body;
+app.post('/api/orders/basket/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { cakeId, cakeName, price, quantity } = req.body;
 
-    if(!baskets[userId]) baskets[userId] = [];
+        
+        await dbPool.query(`
+            INSERT INTO basket_items (user_id, cake_id, cake_name, price, quantity) 
+            VALUES (?, ?, ?, ?, ?) 
+            ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)
+        `, [userId, cakeId, cakeName, price, quantity]);
 
-    const existingItem = baskets[userId].find(item => item.cakeId === cakeId);
-    if(existingItem){
-        existingItem.quantity += quantity;
-    }else{
-        baskets[userId].push({cakeId, cakeName, price,quantity});
+        const [basket] = await dbPool.query(
+            'SELECT cake_id as cakeId, cake_name as cakeName, price, quantity FROM basket_items WHERE user_id = ?', 
+            [userId]
+        );
+
+        logger.info('Item added to basket', { userId, cakeId, correlationId: req.correlationId });
+        res.status(200).json({ message: "Item Added", basket });
+    } catch (error) {
+        logger.error('Error adding to basket', { error: error.message, correlationId: req.correlationId });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
-
-    logger.info('Item added to basket', {userId, cakeId, correlationId: req.correlationId});
-    res.status(200).json({message: "Item Added", basket: baskets[userId]});
 });
 
 //API to remove item from basket
-app.delete('/api/orders/basket/:userId/:cakeId',(req,res)=>{
-    const {userId, cakeId} = req.params;
+app.delete('/api/orders/basket/:userId/:cakeId', async (req, res) => {
+    try {
+        const { userId, cakeId } = req.params;
 
-    if(baskets[userId]){
-        baskets[userId] = baskets[userId].filter(item => item.cakeId !== cakeId);
+        await dbPool.query('DELETE FROM basket_items WHERE user_id = ? AND cake_id = ?', [userId, cakeId]);
+
+        const [basket] = await dbPool.query(
+            'SELECT cake_id as cakeId, cake_name as cakeName, price, quantity FROM basket_items WHERE user_id = ?', 
+            [userId]
+        );
+
+        logger.info('Item removed from basket', { userId, cakeId, correlationId: req.correlationId });
+        res.status(200).json({ message: 'Item Removed', basket });
+    } catch (error) {
+        logger.error('Error removing from basket', { error: error.message, correlationId: req.correlationId });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
-    logger.info('Item removed from basket',{userId, cakeId, correlationId: req.correlationId});
-    res.status(200).json({message: 'Item Removed', basket: baskets[userId] || []});
 });
 
 //API for Completing Checkout
-app.post('/api/orders/checkout/:userId',async (req,res)=>{
+app.post('/api/orders/checkout/:userId', async (req, res) => {
     const { userId } = req.params;
-    const {customerName, customerEmail} = req.body;
-
-    const basket = baskets[userId];
-    if(!basket || basket.length === 0){
-        return res.status(400).json({message : 'Cannot checkout with empty basket'});
-    }
-
-    const totalAmount = basket.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const { customerName, customerEmail } = req.body;
 
     let connection;
 
-    try{
+    try {
         connection = await dbPool.getConnection();
         await connection.beginTransaction();
+
+        const [basket] = await connection.query(
+            'SELECT cake_id as cakeId, cake_name as cakeName, price, quantity FROM basket_items WHERE user_id = ?', 
+            [userId]
+        );
+
+        if (!basket || basket.length === 0) {
+            connection.release();
+            return res.status(400).json({ message: 'Cannot checkout with empty basket' });
+        }
+
+        const totalAmount = basket.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0);
 
         const [orderResult] = await connection.query(
             'INSERT INTO orders (customer_name, customer_email, total_amount) VALUES(?, ?, ?)',
@@ -81,30 +109,31 @@ app.post('/api/orders/checkout/:userId',async (req,res)=>{
 
         const orderId = orderResult.insertId;
 
-        for(const item of basket){
+        for (const item of basket) {
             await connection.query(
                 'INSERT INTO order_item (order_id, cake_id, cake_name, price, quantity) VALUES (?, ?, ?, ?, ?)',
                 [orderId, item.cakeId, item.cakeName, item.price, item.quantity]
             );
         }
 
+        await connection.query('DELETE FROM basket_items WHERE user_id = ?', [userId]);
+
         await connection.commit();
         connection.release();
 
-        delete baskets[userId];
-
-        const eventPayload = {orderId, customerName, customerEmail, totalAmount, items: basket};
+        const eventPayload = { orderId, customerName, customerEmail, totalAmount, items: basket };
         publishOrderCompletedEvent(eventPayload);
 
-        logger.info('Checkout Successful', {orderId, correlationId: req.correlationId});
-        res.status(201).json({message: 'order created successfully', orderId});
-    }catch(error){
-        if(connection){
+        logger.info('Checkout Successful', { orderId, correlationId: req.correlationId });
+        res.status(201).json({ message: 'order created successfully', orderId });
+
+    } catch (error) {
+        if (connection) {
             await connection.rollback();
             connection.release();
         }
-        logger.error('Error in checkout api',{ error: error.message, correlationId: req.correlationId});
-        res.status(500).json({message: 'Internal Server Error in Checkout API'});
+        logger.error('Error in checkout api', { error: error.message, correlationId: req.correlationId });
+        res.status(500).json({ message: 'Internal Server Error in Checkout API' });
     }
 });
 

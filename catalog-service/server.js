@@ -15,9 +15,16 @@ app.use((req, res, next)=>{
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://admin:password@localhost:27017/catalog_db?authSource=admin';
 
+
 mongoose.connect(MONGO_URI)
-.then(() => logger.info('MongoDB Connected Successfully'))
-.catch(err => logger.error('MongoDB Connection Error',{error: err.message}));
+.then(() => {
+    logger.info('MongoDB Connected Successfully');
+})
+.catch(err => {
+    logger.error('MongoDB Connection Error',{error: err.message});
+    process.exit(1);
+});
+
 
 //API to get List and filter cakes
 app.get('/api/cakes', async (req,res)=>{
