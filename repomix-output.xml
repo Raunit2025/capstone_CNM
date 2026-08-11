@@ -1,0 +1,1992 @@
+This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching these patterns are excluded: **/node_modules/**, **/package-lock.json, **/.git/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+api-gateway/
+  config/
+    logger.js
+  Dockerfile
+  package.json
+  server.js
+catalog-service/
+  config/
+    logger.js
+  models/
+    Cake.js
+  Dockerfile
+  package.json
+  seed.js
+  server.js
+frontend/
+  index.html
+k8s/
+  01-infrastructure/
+    mongodb.yaml
+    mysql.yaml
+    rabbitmq.yaml
+  02-services/
+    catalog-service.yaml
+    notification-service.yaml
+    order-service.yaml
+    rating-service.yaml
+  03-gateway/
+    api-gateway.yaml
+notification-service/
+  config/
+    logger.js
+  models/
+    Notification.js
+  Dockerfile
+  package.json
+  server.js
+order-service/
+  config/
+    initDb.js
+    logger.js
+    rabbitmq.js
+  Dockerfile
+  package.json
+  server.js
+rating-service/
+  config/
+    logger.js
+  models/
+    Rating.js
+  Dockerfile
+  package.json
+  server.js
+.gitignore
+docker-compose.yml
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="api-gateway/config/logger.js">
+const winston = require("winston");
+
+const logger = winston.createLogger({
+  level: "info",
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json(),
+  ),
+  defaultMeta: { service: "api-gateway" },
+  transports: [new winston.transports.Console()],
+});
+
+module.exports = logger;
+</file>
+
+<file path="api-gateway/Dockerfile">
+FROM node:22-alpine
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+
+RUN npm ci --only=production
+
+COPY . .
+
+EXPOSE 3000
+
+CMD [ "node" , "server.js"]
+</file>
+
+<file path="api-gateway/package.json">
+{
+  "name": "api-gateway",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "http-proxy-middleware": "^3.0.0",
+    "uuid": "^9.0.1",
+    "winston": "^3.13.0"
+  }
+}
+</file>
+
+<file path="api-gateway/server.js">
+const express = require('express');
+const cors = require('cors');
+const {createProxyMiddleware} = require('http-proxy-middleware');
+const {v4: uuidv4} = require('uuid');
+const logger = require('./config/logger');
+
+const app = express();
+app.use(cors());
+app.use((req,res,next)=>{
+    if(!req.headers['x-correlation-id']){
+        req.headers['x-correlation-id'] = uuidv4();
+    }
+    logger.info(`Incoming request ${req.method} ${req.url}`, {correlationId: req.headers['x-correlation-id']});
+    next();
+});
+
+const routes = {
+    '/api/cakes': process.env.CATALOG_URL || 'http://localhost:3001',
+    '/api/orders': process.env.ORDER_URL || 'http://localhost:3002',
+    '/api/rating': process.env.RATING_URL || 'http://localhost:3003',
+    '/api/notification': process.env.NOTIFICATION_URL || 'http://localhost:3004'
+};
+
+
+for(const[route, target] of Object.entries(routes)){
+    app.use(route, createProxyMiddleware({
+        target,
+        changeOrigin: true,
+        pathRewrite: (path, req) => req.originalUrl,
+        on:{
+            proxyReq: (proxyReq, req, res) =>{
+                proxyReq.setHeader('x-correlation-id', req.headers['x-correlation-id']);
+            },
+            error: (err, req, res)=>{
+                logger.error(`Proxy error while routing to ${route}`, {correlationId: req.headers['x-correlation-id']});
+                res.status(502).json({message: 'Bad Gateway: Microservice is down or unreachable'});
+            }
+        }
+
+    }));
+}
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, ()=>{
+    logger.info(`API Gateway is running on PORT ${PORT}`);
+});
+</file>
+
+<file path="catalog-service/config/logger.js">
+const winston = require('winston');
+
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json(),
+    ),
+    defaultMeta: {service: 'catalog-service'},
+    transports: [
+        new winston.transports.Console(),
+    ]
+});
+
+module.exports.logger = logger;
+</file>
+
+<file path="catalog-service/models/Cake.js">
+const mongoose = require('mongoose');
+
+const cakeSchema = new mongoose.Schema({
+    name:{type: String, required: true, index: true},
+    description:{type: String, required: true},
+    category:{type: String, required: true, index: true},
+    price: {type: Number, required: true},
+    availability:{type: Boolean, default: true},
+    imageReference:{type: String, required: true}
+},{timestamps: true});
+
+const Cake = mongoose.model('Cake', cakeSchema);
+
+module.exports.Cake = Cake;
+</file>
+
+<file path="catalog-service/Dockerfile">
+FROM node:22-alpine
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+
+RUN npm ci --only=production
+
+COPY . .
+
+EXPOSE 3001
+
+CMD [ "node", "server.js" ]
+</file>
+
+<file path="catalog-service/package.json">
+{
+  "name": "catalog-service",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.3.2",
+    "winston": "^3.13.0"
+  }
+}
+</file>
+
+<file path="catalog-service/seed.js">
+db = db.getSiblingDB('catalog_db');
+
+db.cakes.insertMany([
+  {
+    name: "Classic Chocolate Truffle",
+    description: "A rich, dense chocolate cake covered in smooth chocolate ganache.",
+    category: "Chocolate",
+    price: 135.00,
+    availability: true,
+    imageReference: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=500&q=80",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    name: "Strawberry Shortcake",
+    description: "Light vanilla sponge layered with fresh strawberries and whipped cream.",
+    category: "Fruit",
+    price: 228.50,
+    availability: true,
+    imageReference: "https://images.unsplash.com/photo-1565958011703-44f9829ba187?auto=format&fit=crop&w=500&q=80",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    name: "Vanilla Bean Dream",
+    description: "Light and fluffy vanilla sponge made with real Madagascar vanilla beans.",
+    category: "Classic",
+    price: 125.50,
+    availability: true,
+    imageReference: "https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?auto=format&fit=crop&w=500&q=80",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    name: "Red Velvet Capstone",
+    description: "Cloud-native red velvet cake layered with sweet cream cheese frosting.",
+    category: "Specialty",
+    price: 245.99,
+    availability: true,
+    imageReference: "https://images.unsplash.com/photo-1616541823729-00fe0aacd32c?auto=format&fit=crop&w=500&q=80",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    name: "Vegan Lemon Blueberry",
+    description: "Zesty lemon cake studded with fresh blueberries, completely plant-based.",
+    category: "Vegan",
+    price: 232.00,
+    availability: true,
+    imageReference: "https://images.unsplash.com/photo-1519869325930-281384150729?auto=format&fit=crop&w=500&q=80",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    name: "Black Forest Gateau",
+    description: "Layers of chocolate sponge, cherry liqueur, whipped cream, and tart cherries.",
+    category: "Chocolate",
+    price: 240.00,
+    availability: true,
+    imageReference: "https://images.unsplash.com/photo-1606890737304-57a1ca8a5b62?auto=format&fit=crop&w=500&q=80",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    name: "Mango Passion Delight",
+    description: "Tropical mango mousse cake with a passionfruit glaze.",
+    category: "Fruit",
+    price: 238.50,
+    availability: true,
+    imageReference: "https://images.unsplash.com/photo-1502004960551-dc67f7c24cb3?auto=format&fit=crop&w=500&q=80",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    name: "Coffee Walnut Sponge",
+    description: "Classic British sponge cake infused with espresso and topped with walnuts.",
+    category: "Classic",
+    price: 322.00,
+    availability: true,
+    imageReference: "https://images.unsplash.com/photo-1542826438-bd32f43d626f?auto=format&fit=crop&w=500&q=80",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    name: "Hazelnut Praline Crunch",
+    description: "Premium hazelnut cake with a crispy praline base and mirror glaze.",
+    category: "Specialty",
+    price: 255.00,
+    availability: true,
+    imageReference: "https://images.unsplash.com/photo-1587314168485-3236d6710814?auto=format&fit=crop&w=500&q=80",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  },
+  {
+    name: "Mini Cupcake Assortment",
+    description: "A dozen bite-sized cupcakes in assorted classic flavors.",
+    category: "Classic",
+    price: 115.00,
+    availability: true,
+    imageReference: "https://images.unsplash.com/photo-1486427944299-d1955d23e34d?auto=format&fit=crop&w=500&q=80",
+    createdAt: new Date(),
+    updatedAt: new Date()
+  }
+]);
+</file>
+
+<file path="frontend/index.html">
+<!-- frontend/index.html -->
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cake Delight - Capstone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 font-sans text-gray-800">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-md p-4 sticky top-0 z-10">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-red-600">Cake Delight</h1>
+            <button onclick="toggleBasket()"
+                class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">
+                Basket (<span id="basket-count">0</span>)
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto p-6">
+        <!-- Filters Section -->
+        <div class="mb-8 bg-white p-4 rounded-lg shadow-sm flex flex-wrap gap-4 items-center">
+            <input type="text" id="filter-name" placeholder="Search by name..." class="border p-2 rounded flex-grow" />
+            <select id="filter-category" class="border p-2 rounded">
+                <option value="">All Categories</option>
+                <option value="Chocolate">Chocolate</option>
+                <option value="Fruit">Fruit</option>
+                <option value="Classic">Classic</option>
+                <option value="Specialty">Specialty</option>
+                <option value="Vegan">Vegan</option>
+            </select>
+            <input type="number" id="filter-min" placeholder="Min ₹" class="border p-2 rounded w-24" />
+            <input type="number" id="filter-max" placeholder="Max ₹" class="border p-2 rounded w-24" />
+            <button onclick="applyFilters()"
+                class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">
+                Filter
+            </button>
+            <button onclick="resetFilters()" class="text-gray-500 hover:text-gray-800 underline px-2">
+                Reset
+            </button>
+        </div>
+
+        <h2 class="text-xl font-semibold mb-6">Our Catalog</h2>
+        <div id="catalog-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Cakes will be injected here via JS -->
+        </div>
+    </main>
+
+    <!-- Basket Modal -->
+    <div id="basket-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h2 class="text-xl font-bold mb-4">Your Basket</h2>
+            <div id="basket-items" class="space-y-4 max-h-64 overflow-y-auto mb-4">
+                <!-- Basket items injected here -->
+            </div>
+            <div class="border-t pt-4 flex justify-between font-bold text-lg">
+                <span>Total:</span>
+                <span>₹<span id="basket-total">0.00</span></span>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button onclick="toggleBasket()" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                    Close
+                </button>
+                <button onclick="checkout()" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                    Checkout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div id="checkout-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h2 class="text-xl font-bold mb-4">Complete Checkout</h2>
+            <form id="checkout-form" onsubmit="submitCheckout(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Full Name</label>
+                    <input type="text" id="checkout-name" required
+                        class="w-full border p-2 rounded focus:outline-blue-500" />
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-1">Email Address</label>
+                    <input type="email" id="checkout-email" required
+                        class="w-full border p-2 rounded focus:outline-blue-500" />
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="toggleCheckoutModal()"
+                        class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                        Cancel
+                    </button>
+                    <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                        Confirm Order
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reviews Modal -->
+    <div id="reviews-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden justify-center items-center z-50">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold" id="review-cake-title">Cake Reviews</h2>
+                <button onclick="toggleReviewsModal()" class="text-gray-500 hover:text-gray-800 font-bold text-2xl">
+                    &times;
+                </button>
+            </div>
+
+            <!-- List of Reviews -->
+            <div id="reviews-list" class="space-y-4 mb-6 overflow-y-auto flex-grow border-b pb-4">
+                <!-- Reviews injected here -->
+            </div>
+
+            <!-- Submit Review Form -->
+            <div class="pt-2">
+                <h3 class="font-semibold mb-3">Leave a Review</h3>
+                <form id="review-form" onsubmit="submitReview(event)">
+                    <input type="hidden" id="review-cake-id" />
+                    <div class="mb-2">
+                        <input type="text" id="review-name" placeholder="Your Name" required
+                            class="w-full border p-2 rounded text-sm focus:outline-blue-500" />
+                    </div>
+                    <div class="mb-2">
+                        <select id="review-rating" required
+                            class="w-full border p-2 rounded text-sm focus:outline-blue-500">
+                            <option value="5">5 - Excellent (⭐⭐⭐⭐⭐)</option>
+                            <option value="4">4 - Good (⭐⭐⭐⭐)</option>
+                            <option value="3">3 - Average (⭐⭐⭐)</option>
+                            <option value="2">2 - Poor (⭐⭐)</option>
+                            <option value="1">1 - Terrible (⭐)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <textarea id="review-text" placeholder="Tell us what you thought..."
+                            class="w-full border p-2 rounded text-sm focus:outline-blue-500" rows="2"></textarea>
+                    </div>
+                    <button type="submit"
+                        class="bg-yellow-500 text-white font-semibold px-4 py-2 rounded w-full hover:bg-yellow-600 transition">
+                        Submit Review
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-notification"
+        class="fixed top-5 right-5 bg-green-600 text-white px-6 py-4 rounded-lg shadow-2xl transform transition-all duration-300 translate-x-full opacity-0 z-[100] flex items-center space-x-3">
+        <svg class="w-6 h-6 text-white flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <div>
+            <h4 class="font-bold text-lg">Order Confirmed!</h4>
+            <p id="toast-message" class="text-sm mt-1">Receipt will be sent to your email.</p>
+        </div>
+        <button onclick="closeToast()"
+            class="ml-4 text-white hover:text-gray-200 font-bold text-xl leading-none">&times;</button>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:30000/api";
+        const USER_ID = "test_user_123";
+
+        // 1. Fetch and Display Catalog with Filters
+        async function fetchCatalog(queryString = "") {
+            try {
+                const response = await fetch(`${API_BASE}/cakes${queryString}`);
+                const cakes = await response.json();
+
+                const grid = document.getElementById("catalog-grid");
+
+                if (cakes.length === 0) {
+                    grid.innerHTML =
+                        '<p class="col-span-full text-center text-gray-500">No cakes found matching your filters.</p>';
+                    return;
+                }
+
+                grid.innerHTML = cakes
+                    .map(
+                        (cake) => `
+            <div class="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
+                <img src="${cake.imageReference}" alt="${cake.name}" class="w-full h-48 object-cover">
+                <div class="p-4 flex-grow flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-lg font-bold">${cake.name}</h3>
+                        <p class="text-xs inline-block bg-gray-200 text-gray-700 px-2 py-1 rounded mt-1 mb-2">${cake.category}</p>
+                        <p class="text-gray-700 text-sm mb-4">${cake.description}</p>
+                    </div>
+                    <div class="flex justify-between items-center mt-4 pt-2 border-t">
+                        <span class="font-bold text-lg text-green-700">₹${cake.price}</span>
+                        <div class="flex space-x-2">
+                            <button onclick="openReviewsModal('${cake._id}', '${cake.name.replace(/'/g, "\\'")}')" 
+                                    class="bg-gray-100 text-gray-700 px-3 py-1 rounded hover:bg-gray-200 transition text-sm">
+                                ⭐ Reviews
+                            </button>
+                            <button onclick="addToBasket(event, '${cake._id}', '${cake.name.replace(/'/g, "\\'")}', ${cake.price})" 
+                                    class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition shadow-sm text-sm">
+                                Add
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `
+                    )
+                    .join("");
+            } catch (error) {
+                console.error("Error fetching catalog:", error);
+            }
+        }
+        // 2. Filter Handlers
+        function applyFilters() {
+            const name = document.getElementById("filter-name").value;
+            const category = document.getElementById("filter-category").value;
+            const minPrice = document.getElementById("filter-min").value;
+            const maxPrice = document.getElementById("filter-max").value;
+
+            const params = new URLSearchParams();
+            if (name) params.append("name", name);
+            if (category) params.append("category", category);
+            if (minPrice) params.append("minPrice", minPrice);
+            if (maxPrice) params.append("maxPrice", maxPrice);
+
+            const queryString = params.toString() ? `?${params.toString()}` : "";
+            fetchCatalog(queryString);
+        }
+
+        function resetFilters() {
+            document.getElementById("filter-name").value = "";
+            document.getElementById("filter-category").value = "";
+            document.getElementById("filter-min").value = "";
+            document.getElementById("filter-max").value = "";
+            fetchCatalog();
+        }
+
+        // 3. Add to Basket
+        async function addToBasket(event, cakeId, cakeName, price) {
+            try {
+                await fetch(`${API_BASE}/orders/basket/${USER_ID}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ cakeId, cakeName, price, quantity: 1 }),
+                });
+                updateBasketUI();
+
+                // Visual feedback using the passed event
+                const btn = event.target;
+                const originalText = btn.innerText;
+                btn.innerText = "Added!";
+                btn.classList.add("bg-green-500");
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.classList.remove("bg-green-500");
+                }, 1000);
+            } catch (error) {
+                console.error("Error adding to basket:", error);
+            }
+        }
+        // 4. Update Basket UI
+        async function updateBasketUI() {
+            try {
+                const response = await fetch(`${API_BASE}/orders/basket/${USER_ID}`);
+                const data = await response.json();
+
+                document.getElementById("basket-count").innerText =
+                    data.basket.length;
+                document.getElementById("basket-total").innerText =
+                    data.totalAmount.toFixed(2);
+
+                const basketContainer = document.getElementById("basket-items");
+                if (data.basket.length === 0) {
+                    basketContainer.innerHTML =
+                        '<p class="text-gray-500">Your basket is empty.</p>';
+                    return;
+                }
+
+                basketContainer.innerHTML = data.basket
+                    .map(
+                        (item) => `
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <div>
+                            <p class="font-semibold">${item.cakeName}</p>
+                            <p class="text-sm text-gray-500">Qty: ${item.quantity} x ₹${item.price}</p>
+                        </div>
+                        <p class="font-bold">₹${(item.quantity * item.price).toFixed(2)}</p>
+                    </div>
+                `,
+                    )
+                    .join("");
+            } catch (error) {
+                console.error("Error fetching basket:", error);
+            }
+        }
+
+        // 5. Checkout
+        function checkout() {
+            toggleBasket(); // Close basket
+            toggleCheckoutModal(); // Open custom form
+        }
+
+        function toggleCheckoutModal() {
+            const modal = document.getElementById('checkout-modal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+            document.getElementById('checkout-form').reset();
+        }
+
+        async function submitCheckout(event) {
+            event.preventDefault();
+            const name = document.getElementById('checkout-name').value;
+            const email = document.getElementById('checkout-email').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/orders/checkout/${USER_ID}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customerName: name, customerEmail: email })
+                });
+
+                if (response.ok) {
+                    toggleCheckoutModal(); // Close the modal
+                    updateBasketUI(); // Clear basket in UI
+                    showToast(email); // Show the new in-app notification!
+                } else {
+                    const err = await response.json();
+                    alert(`Checkout failed: ${err.message}`);
+                }
+            } catch (error) {
+                console.error('Error during checkout:', error);
+            }
+        }
+        // --- REVIEWS LOGIC ---
+        function toggleReviewsModal() {
+            const modal = document.getElementById('reviews-modal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+            document.getElementById('review-form').reset();
+        }
+
+        async function openReviewsModal(cakeId, cakeName) {
+            document.getElementById('review-cake-title').innerText = `Reviews: ${cakeName}`;
+            document.getElementById('review-cake-id').value = cakeId;
+            const list = document.getElementById('reviews-list');
+            list.innerHTML = '<p class="text-center text-gray-500 py-4">Loading reviews...</p>';
+
+            toggleReviewsModal();
+
+            try {
+                const response = await fetch(`${API_BASE}/rating/${cakeId}`);
+                const data = await response.json();
+
+                if (data.totalRating === 0 || !data.review || data.review.length === 0) {
+                    list.innerHTML = '<p class="text-center text-gray-500 py-4">No reviews yet. Be the first to review!</p>';
+                    return;
+                }
+
+                list.innerHTML = data.review.map(r => `
+                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-sm text-gray-800">${r.userName}</span>
+                            <span class="text-yellow-500 text-sm tracking-widest">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+                        </div>
+                        <p class="text-gray-600 text-sm mt-1">${r.review || ''}</p>
+                    </div>
+                `).join('');
+            } catch (error) {
+                list.innerHTML = '<p class="text-red-500 py-4 text-center">Failed to load reviews.</p>';
+            }
+        }
+
+        async function submitReview(event) {
+            event.preventDefault();
+            const cakeId = document.getElementById('review-cake-id').value;
+            const userName = document.getElementById('review-name').value;
+            const rating = document.getElementById('review-rating').value;
+            const review = document.getElementById('review-text').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/rating`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cakeId,
+                        userId: USER_ID,
+                        userName,
+                        rating: Number(rating),
+                        review
+                    })
+                });
+
+                if (response.ok) {
+                    const btn = event.target.querySelector('button[type="submit"]');
+                    btn.innerText = 'Submitted!';
+                    btn.classList.add('bg-green-500');
+                    setTimeout(() => {
+                        toggleReviewsModal();
+                        btn.innerText = 'Submit Review';
+                        btn.classList.remove('bg-green-500');
+                    }, 1000);
+                }
+            } catch (error) {
+                console.error('Error submitting review:', error);
+            }
+        }
+        // UI toggles
+        function toggleBasket() {
+            const modal = document.getElementById("basket-modal");
+            modal.classList.toggle("hidden");
+            modal.classList.toggle("flex");
+            if (!modal.classList.contains("hidden")) {
+                updateBasketUI();
+            }
+        }
+
+        // --- TOAST NOTIFICATION LOGIC ---
+        function showToast(email) {
+            const toast = document.getElementById('toast-notification');
+            const message = document.getElementById('toast-message');
+            
+            message.innerText = `Order details and receipt will be sent to ${email}`;
+            
+            // Slide in
+            toast.classList.remove('translate-x-full', 'opacity-0');
+            
+            // Auto-hide after 5 seconds
+            setTimeout(closeToast, 5000);
+        }
+
+        function closeToast() {
+            const toast = document.getElementById('toast-notification');
+            toast.classList.add('translate-x-full', 'opacity-0');
+        }
+
+        // Run on load
+        fetchCatalog();
+        updateBasketUI();
+    </script>
+</body>
+
+</html>
+</file>
+
+<file path="k8s/01-infrastructure/mongodb.yaml">
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-deployment
+  labels:
+    app: mongodb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:latest
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: "admin"
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              value: "password"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-service
+spec:
+  type: ClusterIP
+  selector:
+    app: mongodb
+  ports:
+    - port: 27017
+      targetPort: 27017
+</file>
+
+<file path="k8s/01-infrastructure/mysql.yaml">
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-deployment
+  labels:
+    app: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "rootpassword"
+            - name: MYSQL_DATABASE
+              value: "order_db"
+            - name: MYSQL_USER
+              value: "order_user"
+            - name: MYSQL_PASSWORD
+              value: "order_password"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+spec:
+  type: ClusterIP
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+      targetPort: 3306
+</file>
+
+<file path="k8s/01-infrastructure/rabbitmq.yaml">
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq-deployment
+  labels:
+    app: rabbitmq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3-management
+          ports:
+            - containerPort: 5672
+            - containerPort: 15672
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: "guest"
+            - name: RABBITMQ_DEFAULT_PASS
+              value: "guest"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-service
+spec:
+  type: ClusterIP
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: management
+      port: 15672
+      targetPort: 15672
+</file>
+
+<file path="k8s/02-services/catalog-service.yaml">
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catalog-service
+  template:
+    metadata:
+      labels:
+        app: catalog-service
+    spec:
+      containers:
+        - name: catalog-service
+          image: catalog-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3001
+          env:
+            - name: MONGO_URI
+              value: "mongodb://admin:password@mongodb-service:27017/catalog_db?authSource=admin"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-service
+spec:
+  type: ClusterIP
+  selector:
+    app: catalog-service
+  ports:
+    - port: 3001
+      targetPort: 3001
+</file>
+
+<file path="k8s/02-services/notification-service.yaml">
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: notification-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3004
+          env:
+            - name: MONGO_URI
+              value: "mongodb://admin:password@mongodb-service:27017/notification_db?authSource=admin"
+            - name: RABBITMQ_URL
+              value: "amqp://guest:guest@rabbitmq-service:5672"
+            - name: GMAIL_USER
+              value: "" #If you want to use Gmail for sending recipe in email then add your Gmail email address here
+            - name: GMAIL_APP_PASSWORD
+              value: "" # and the app password here. In the code i have already implemented the logic to use it with a fallback to MOCK email.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+spec:
+  type: ClusterIP
+  selector:
+    app: notification-service
+  ports:
+    - port: 3004
+      targetPort: 3004
+</file>
+
+<file path="k8s/02-services/order-service.yaml">
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+        - name: order-service
+          image: order-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3002
+          env:
+            - name: MYSQL_HOST
+              value: "mysql-service"
+            - name: MYSQL_PORT
+              value: "3306"
+            - name: MYSQL_USER
+              value: "order_user"
+            - name: MYSQL_PASSWORD
+              value: "order_password"
+            - name: MYSQL_DATABASE
+              value: "order_db"
+            - name: RABBITMQ_URL
+              value: "amqp://guest:guest@rabbitmq-service:5672"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+spec:
+  type: ClusterIP
+  selector:
+    app: order-service
+  ports:
+    - port: 3002
+      targetPort: 3002
+</file>
+
+<file path="k8s/02-services/rating-service.yaml">
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rating-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rating-service
+  template:
+    metadata:
+      labels:
+        app: rating-service
+    spec:
+      containers:
+        - name: rating-service
+          image: rating-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3003
+          env:
+            - name: MONGO_URI
+              value: "mongodb://admin:password@mongodb-service:27017/rating_db?authSource=admin"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rating-service
+spec:
+  type: ClusterIP
+  selector:
+    app: rating-service
+  ports:
+    - port: 3003
+      targetPort: 3003
+</file>
+
+<file path="k8s/03-gateway/api-gateway.yaml">
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: api-gateway:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: CATALOG_URL
+              value: "http://catalog-service:3001"
+            - name: ORDER_URL
+              value: "http://order-service:3002"
+            - name: RATING_URL
+              value: "http://rating-service:3003"
+            - name: NOTIFICATION_URL
+              value: "http://notification-service:3004"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-service
+spec:
+  type: NodePort
+  selector:
+    app: api-gateway
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30000
+</file>
+
+<file path="notification-service/config/logger.js">
+const winston = require('winston');
+
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json()
+    ),
+    defaultMeta: {service: 'notification-service'},
+    transports: [
+        new winston.transports.Console()
+    ]
+});
+
+module.exports = logger;
+</file>
+
+<file path="notification-service/models/Notification.js">
+const mongoose = require('mongoose');
+
+const notificationSchema  = new mongoose.Schema({
+    orderId: {type: String, required: true, index: true},
+    customerEmail: {type: String, required: true},
+    status: {type: String, enum: ['PENDING', 'SENT', 'FAILED'], default: 'PENDING'},
+    message: {type: String}
+},{timestamps: true});
+
+module.exports = mongoose.model('Notification', notificationSchema);
+</file>
+
+<file path="notification-service/Dockerfile">
+FROM node:22-alpine
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+
+RUN npm ci --only=production
+
+COPY . .
+
+EXPOSE 3004
+
+CMD [ "node", "server.js" ]
+</file>
+
+<file path="notification-service/package.json">
+{
+  "name": "notification-service",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.4",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "mongoose": "^8.3.2",
+    "nodemailer": "^9.0.5",
+    "winston": "^3.13.0"
+  }
+}
+</file>
+
+<file path="order-service/config/logger.js">
+const winston = require("winston");
+
+const logger = winston.createLogger({
+  level: "info",
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json(),
+  ),
+  defaultMeta: { service: "order-service" },
+  transports: [new winston.transports.Console()],
+});
+
+module.exports.logger = logger;
+</file>
+
+<file path="order-service/Dockerfile">
+FROM node:22-alpine
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+
+RUN npm ci --only=production
+
+COPY . .
+
+EXPOSE 3002
+
+CMD [ "node", "server.js" ]
+</file>
+
+<file path="order-service/package.json">
+{
+    "name": "order-service",
+    "version": "1.0.0",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "amqplib": "^0.10.4",
+        "cors": "^2.8.5",
+        "express": "^4.19.2",
+        "mysql2": "^3.9.7",
+        "winston": "^3.13.0"
+    }
+}
+</file>
+
+<file path="rating-service/config/logger.js">
+const winston = require('winston');
+
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json()
+    ),
+    defaultMeta: {service: 'rating-service'},
+    transports: [new winston.transports.Console()]
+});
+
+module.exports = logger;
+</file>
+
+<file path="rating-service/Dockerfile">
+FROM node:22-alpine
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+
+RUN npm ci --only=production
+
+COPY . .
+
+EXPOSE 3003
+
+CMD [ "node", "server.js" ]
+</file>
+
+<file path="rating-service/package.json">
+{
+  "name": "rating-service",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.3.2",
+    "winston": "^3.13.0"
+  }
+}
+</file>
+
+<file path=".gitignore">
+# Node modules across all microservices
+**/node_modules/
+
+# Environment variables (Crucial for your Gmail App Password)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs generated by Winston
+**/logs/
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+</file>
+
+<file path="README.md">
+
+</file>
+
+<file path="catalog-service/server.js">
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const logger = require('./config/logger').logger;
+const Cake = require('./models/Cake').Cake;
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+app.use((req, res, next)=>{
+    req.correlationId = req.headers['x-correlation-id'] || 'N/A';
+    next();
+});
+
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://admin:password@localhost:27017/catalog_db?authSource=admin';
+
+
+mongoose.connect(MONGO_URI)
+.then(() => {
+    logger.info('MongoDB Connected Successfully');
+})
+.catch(err => {
+    logger.error('MongoDB Connection Error',{error: err.message});
+    process.exit(1);
+});
+
+
+//API to get List and filter cakes
+app.get('/api/cakes', async (req,res)=>{
+    try{
+        const {name, category, minPrice, maxPrice} = req.query;
+        let query = {};
+
+        if(name) query.name = {$regex: name, $options: 'i'};
+        if(category) query.category = category;
+        if(minPrice || maxPrice){
+            query.price = {};
+            if(minPrice) query.price.$gte = Number(minPrice);
+            if(maxPrice) query.price.$lte = Number(maxPrice);
+        }
+
+        const cakes = await Cake.find(query);
+        logger.info('Cakes retrieved successfully',{count: cakes.length, correlationId: req.correlationId });
+        res.status(200).json(cakes);
+    }catch(error){
+        logger.error('Error fetching cakes',{ error: error.message, correlationId: req.correlationId });
+        res.status(500).json({ message: 'Internal Server Error in cakes get api '});
+    }
+});
+
+
+//API to get cake by id
+app.get('/api/cakes/:id', async (req, res) =>{
+    try{
+        const cake = await Cake.findById(req.params.id);
+        if(!cake){
+            logger.warn('Cake not found', {cakeId: req.params.id, correlationId: req.correlationId });
+            return res.status(404).json({message: 'Cake not found'});
+        }
+        res.status(200).json(cake);
+    }catch(error){
+        logger.error('Error fetching Cake details', {error: error.message, correlationId: req.correlationId});
+        res.status(500).json({message: 'Internal server error in cakes api get by id'});
+    }
+});
+
+
+//Utility API to add cake data to the DB easily :)
+app.post('/api/cakes',async (req, res)=>{
+    try{
+        const newCake = new Cake(req.body);
+        await newCake.save();
+        logger.info('New Cake data created', {cakeId: newCake._id, correlationId: req.correlationId});
+        res.status(201).json(newCake);
+    }catch(error){
+        logger.error('Error creating cake', {error: error.message, correlationId: req.correlationId});
+        res.status(400).json({message: 'Bad Request', error: error.message });
+    }
+})
+
+const PORT = process.env.PORT || 3001;
+
+app.listen(PORT,() => {
+    logger.info(`Catalog service is listening on PORT: ${PORT}`);
+})
+</file>
+
+<file path="notification-service/server.js">
+require("dotenv").config();
+const express = require("express");
+const mongoose = require("mongoose");
+const amqp = require("amqplib");
+const nodemailer = require("nodemailer");
+const cors = require("cors");
+const logger = require("./config/logger");
+const Notification = require("./models/Notification");
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const MONGO_URI =
+  process.env.MONGO_URI ||
+  "mongodb://admin:password@localhost:27017/notification_db?authSource=admin";
+mongoose
+  .connect(MONGO_URI)
+  .then(() => logger.info("MongoDb connection Successful"))
+  .catch((error) =>
+    logger.error("Error in connecting to MongoDB", { error: error.message }),
+  );
+
+let transporter = null;
+
+if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+  transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  transporter.verify((error, success) => {
+    if (error) {
+      logger.error("Gmail SMTP connection failed", { error: error.message });
+    } else {
+      logger.info("Live Gmail Transporter is ready to send messages");
+    }
+  });
+} else {
+  logger.warn(
+    "No Gmail credentials found in .env. Falling back to MOCK email mode.",
+  );
+}
+
+async function startRabbitMQConsumer() {
+  const RABBITMQ_URL =
+    process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
+  
+  try {
+    const connection = await amqp.connect(RABBITMQ_URL);
+    const channel = await connection.createChannel();
+    const queue = "order_notifications";
+
+    await channel.assertQueue(queue, { durable: true });
+    logger.info("RabbitMQ connected, waiting for order events...");
+
+    channel.consume(queue, async (msg) => {
+      if (msg !== null) {
+        const eventData = JSON.parse(msg.content.toString());
+        logger.info("Received Order completion event", {
+          orderId: eventData.orderId,
+        });
+
+        try {
+          if (transporter) {
+            await transporter.sendMail({
+              from: `"Cake Delight" <${process.env.GMAIL_USER}>`,
+              to: eventData.customerEmail,
+              subject: `Your Order Confirmation #${eventData.orderId}`,
+              text: `Order #${eventData.orderId} confirmed. Total: ₹${eventData.totalAmount}`,
+              html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+                    <h2 style="color: #ff6b6b;">Cake Delight</h2>
+                    <h3>Thank you for your order!</h3>
+                    <p>Your order with orderID<b>#${eventData.orderId}</b> has been confirmed.</p>
+                    <p><b>Total Amount Paid:</b> ₹${eventData.totalAmount}</p>
+                </div>
+              `,
+            });
+            logger.info(`Email successfully sent to ${eventData.customerEmail}`);
+          } else {
+            logger.info(`[MOCK EMAIL OUTBOUND] To: ${eventData.customerEmail} | Body: Order #${eventData.orderId} confirmed. Total: ₹${eventData.totalAmount}`);
+          }
+
+          const notification = new Notification({
+            orderId: eventData.orderId.toString(),
+            customerEmail: eventData.customerEmail,
+            status: "SENT",
+            message: `Order #${eventData.orderId} confirmed. Total: $${eventData.totalAmount}`,
+          });
+          await notification.save();
+
+          channel.ack(msg);
+
+        } catch (error) {
+          logger.error("Error processing notification", { error: error.message });
+        }
+      }
+    });
+  } catch (error) {
+    logger.error("RabbitMQ connection Error", { error: error.message });
+  }
+}
+
+//API to retiriev notification
+app.get("/api/notification/:orderId", async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const notifications = await Notification.find({ orderId });
+    res.status(200).json(notifications);
+  } catch (error) {
+    logger.error("Error in fetching notification", { error: error.message });
+    res.status(500).json({ message: "Internal Server error" });
+  }
+});
+
+const PORT = process.env.PORT || 3004;
+app.listen(PORT, async () => {
+  logger.info(`Notification Service is running on PORT ${PORT}`);
+  await startRabbitMQConsumer();
+});
+</file>
+
+<file path="order-service/config/initDb.js">
+const mysql = require("mysql2/promise");
+const logger = require("./logger").logger;
+
+const dbConfig = {
+  host: process.env.MYSQL_HOST || "localhost",
+  port: process.env.MYSQL_PORT || 3306,
+  user: process.env.MYSQL_USER || "order_user",
+  password: process.env.MYSQL_PASSWORD || "order_password",
+  database: process.env.MYSQL_DATABASE || "order_db",
+};
+
+async function initDatabase() {
+  try {
+    const pool = mysql.createPool(dbConfig);
+
+    await pool.query(`
+                CREATE TABLE IF NOT EXISTS orders (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    customer_name VARCHAR(255) NOT NULL,
+                    customer_email VARCHAR(255) NOT NULL,
+                    total_amount DECIMAL(10,2) NOT NULL,
+                    status VARCHAR(50) DEFAULT 'PENDING',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+    await pool.query(`
+                CREATE TABLE IF NOT EXISTS order_item (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    order_id INT NOT NULL,
+                    cake_id VARCHAR(255) NOT NULL,
+                    cake_name VARCHAR(255) NOT NULL,
+                    price DECIMAL(10,2) NOT NULL,
+                    quantity INT NOT NULL,
+                    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+                )
+            `);
+
+    await pool.query(`
+          CREATE TABLE IF NOT EXISTS basket_items (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id VARCHAR(255) NOT NULL,
+            cake_id VARCHAR(255) NOT NULL,
+            cake_name VARCHAR(255) NOT NULL,
+            price DECIMAL(10, 2) NOT NULL,
+            quantity INT NOT NULL,
+            UNIQUE KEY unique_user_cake (user_id, cake_id)
+          )
+      `);
+
+    logger.info("MySQL Database tables initialized successfully");
+    return pool;
+  } catch (error) {
+    logger.error("Error in initializing mysql database", {
+      error: error.message,
+    });
+    throw error;
+  }
+}
+
+module.exports.initDatabase = initDatabase;
+</file>
+
+<file path="order-service/config/rabbitmq.js">
+const amqp = require("amqplib");
+const logger = require("./logger").logger;
+
+let channel = null;
+
+async function connectRabbitMQ(retries = 5) {
+  const RABBITMQ_URL =
+    process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
+  while (retries) {
+    try {
+      const connection = await amqp.connect(RABBITMQ_URL);
+      channel = await connection.createChannel();
+      await channel.assertQueue("order_notifications", { durable: true });
+      logger.info("RabbitMQ connection successful");
+      break;
+    } catch (error) {
+      logger.error(`RabbitMQ connection failed, retrying... (${retries} left)`);
+      retries -= 1;
+      await new Promise((res) => setTimeout(res, 5000));
+      if (retries === 0)
+        throw new Error("RabbitMQ connection completely failed");
+    }
+  }
+}
+
+function publishOrderCompletedEvent(eventData) {
+  if (!channel) {
+    logger.warn("RabbitMQ channel not available.");
+    return false;
+  }
+  const queue = "order_notifications";
+  const message = JSON.stringify(eventData);
+  channel.sendToQueue(queue, Buffer.from(message), { persistent: true });
+  logger.info("Published order completed event to RabbitMq", {
+    orderId: eventData.orderId,
+  });
+  return true;
+}
+
+module.exports = { connectRabbitMQ, publishOrderCompletedEvent };
+</file>
+
+<file path="order-service/server.js">
+const express = require('express');
+const cors = require('cors');
+const logger = require('./config/logger').logger;
+const initDatabase = require('./config/initDb').initDatabase;
+const {connectRabbitMQ, publishOrderCompletedEvent} = require('./config/rabbitmq');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+app.use((req, res, next)=>{
+    req.correlationId = req.headers['x-correlation-id'] || 'N/A';
+    next();
+});
+
+let dbPool;
+
+//API to get basket and total Amount for userId
+app.get('/api/orders/basket/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const [basket] = await dbPool.query(
+            'SELECT cake_id as cakeId, cake_name as cakeName, price, quantity FROM basket_items WHERE user_id = ?', 
+            [userId]
+        );
+
+        const totalAmount = basket.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0);
+        logger.info('Basket retrieved', { userId, itemCount: basket.length, correlationId: req.correlationId });
+        res.status(200).json({ basket, totalAmount });
+    } catch (error) {
+        logger.error('Error fetching basket', { error: error.message, correlationId: req.correlationId });
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
+//API to add to basket or update the quantity if item already exists
+app.post('/api/orders/basket/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { cakeId, cakeName, price, quantity } = req.body;
+
+        
+        await dbPool.query(`
+            INSERT INTO basket_items (user_id, cake_id, cake_name, price, quantity) 
+            VALUES (?, ?, ?, ?, ?) 
+            ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)
+        `, [userId, cakeId, cakeName, price, quantity]);
+
+        const [basket] = await dbPool.query(
+            'SELECT cake_id as cakeId, cake_name as cakeName, price, quantity FROM basket_items WHERE user_id = ?', 
+            [userId]
+        );
+
+        logger.info('Item added to basket', { userId, cakeId, correlationId: req.correlationId });
+        res.status(200).json({ message: "Item Added", basket });
+    } catch (error) {
+        logger.error('Error adding to basket', { error: error.message, correlationId: req.correlationId });
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
+//API to remove item from basket
+app.delete('/api/orders/basket/:userId/:cakeId', async (req, res) => {
+    try {
+        const { userId, cakeId } = req.params;
+
+        await dbPool.query('DELETE FROM basket_items WHERE user_id = ? AND cake_id = ?', [userId, cakeId]);
+
+        const [basket] = await dbPool.query(
+            'SELECT cake_id as cakeId, cake_name as cakeName, price, quantity FROM basket_items WHERE user_id = ?', 
+            [userId]
+        );
+
+        logger.info('Item removed from basket', { userId, cakeId, correlationId: req.correlationId });
+        res.status(200).json({ message: 'Item Removed', basket });
+    } catch (error) {
+        logger.error('Error removing from basket', { error: error.message, correlationId: req.correlationId });
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
+//API for Completing Checkout
+app.post('/api/orders/checkout/:userId', async (req, res) => {
+    const { userId } = req.params;
+    const { customerName, customerEmail } = req.body;
+
+    let connection;
+
+    try {
+        connection = await dbPool.getConnection();
+        await connection.beginTransaction();
+
+        const [basket] = await connection.query(
+            'SELECT cake_id as cakeId, cake_name as cakeName, price, quantity FROM basket_items WHERE user_id = ?', 
+            [userId]
+        );
+
+        if (!basket || basket.length === 0) {
+            connection.release();
+            return res.status(400).json({ message: 'Cannot checkout with empty basket' });
+        }
+
+        const totalAmount = basket.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0);
+
+        const [orderResult] = await connection.query(
+            'INSERT INTO orders (customer_name, customer_email, total_amount) VALUES(?, ?, ?)',
+            [customerName, customerEmail, totalAmount]
+        );
+
+        const orderId = orderResult.insertId;
+
+        for (const item of basket) {
+            await connection.query(
+                'INSERT INTO order_item (order_id, cake_id, cake_name, price, quantity) VALUES (?, ?, ?, ?, ?)',
+                [orderId, item.cakeId, item.cakeName, item.price, item.quantity]
+            );
+        }
+
+        await connection.query('DELETE FROM basket_items WHERE user_id = ?', [userId]);
+
+        await connection.commit();
+        connection.release();
+
+        const eventPayload = { orderId, customerName, customerEmail, totalAmount, items: basket };
+        publishOrderCompletedEvent(eventPayload);
+
+        logger.info('Checkout Successful', { orderId, correlationId: req.correlationId });
+        res.status(201).json({ message: 'order created successfully', orderId });
+
+    } catch (error) {
+        if (connection) {
+            await connection.rollback();
+            connection.release();
+        }
+        logger.error('Error in checkout api', { error: error.message, correlationId: req.correlationId });
+        res.status(500).json({ message: 'Internal Server Error in Checkout API' });
+    }
+});
+
+const PORT = process.env.PORT || 3002;
+
+async function startServer() {
+    try{
+        dbPool = await initDatabase();
+        await connectRabbitMQ();
+
+    app.listen(PORT, ()=>{
+        logger.info(`Order service listening on PORT ${PORT}`);
+    });
+    }catch(error){
+        logger.error('Failed to start order-service Server', {error: error.message});
+        process.exit(1);
+    }
+}
+
+startServer();
+</file>
+
+<file path="rating-service/models/Rating.js">
+const mongoose = require('mongoose');
+
+const ratingSchema = new mongoose.Schema({
+    cakeId: {type: String, required: true, index: true},
+    userId: {type: String, required: true},
+    userName: {type: String, required: true},
+    rating: {type: Number, required: true, min: 1, max: 5},
+    review: {type: String}
+}, {timestamps: true});
+
+module.exports = mongoose.model('Rating', ratingSchema);
+</file>
+
+<file path="rating-service/server.js">
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const logger = require("./config/logger");
+const Rating = require("./models/Rating");
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+app.use((req, res, next) => {
+  req.correlationId = req.headers["x-correlation-id"] || "N/A";
+  next();
+});
+
+const MONGO_URI =
+  process.env.MONGO_URI ||
+  "mongodb://admin:password@localhost:27017/rating_db?authSource=admin";
+
+mongoose
+  .connect(MONGO_URI)
+  .then(() => logger.info("MongoDb connected successfully"))
+  .catch((error) => {
+    logger.error("MongoDb Connection Error", { error: error.message });
+    process.exit(1);
+  });
+
+//API to submit new rating
+app.post("/api/rating", async (req, res) => {
+  try {
+    const { cakeId, userId, userName, rating, review } = req.body;
+
+    if (!cakeId || !userId || !userName || !rating) {
+      return res
+        .status(400)
+        .json({ message: "cakeId, userId, userName and ratings are required" });
+    }
+
+    const newRating = new Rating({ cakeId, userId, userName, rating, review });
+    await newRating.save();
+
+    logger.info("Rating Submitted", {
+      cakeId,
+      userId,
+      userName,
+      correlationId: req.correlationId,
+    });
+    res
+      .status(201)
+      .json({ message: "Rating Submitted successfully", data: newRating });
+  } catch (error) {
+    logger.error("Error in submiting new rating", {
+      error: error.message,
+      correlationId: req.correlationId,
+    });
+    res
+      .status(500)
+      .json({ message: "Internal server error in adding new rating" });
+  }
+});
+
+//API to get ratings and average
+app.get("/api/rating/:cakeId", async (req, res) => {
+  try {
+    const { cakeId } = req.params;
+    const ratings = await Rating.find({ cakeId });
+
+    let averageRating = 0;
+    if (ratings.length > 0) {
+      const sum = ratings.reduce((acc, curr) => acc + curr.rating, 0);
+      averageRating = parseFloat((sum / ratings.length).toFixed(1));
+    }
+
+    logger.info("Rating retrieved", {
+      cakeId,
+      count: ratings.length,
+      averageRating,
+      correlationId: req.correlationId,
+    });
+    res.status(200).json({
+      cakeId,
+      averageRating,
+      totalRating: ratings.length,
+      review: ratings,
+    });
+  } catch (error) {
+    logger.error("Error in fetching review", {
+      error: error.message,
+      correlationId: req.correlationId,
+    });
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+const PORT = process.env.PORT || 3003;
+app.listen(PORT, () => {
+  logger.info(`Rating service is running on PORT ${PORT}`);
+});
+</file>
+
+<file path="docker-compose.yml">
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq-broker
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+  
+  mongodb:
+    image: mongo:latest
+    container_name: mongo-db
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - ./catalog-service/seed.js:/docker-entrypoint-initdb.d/seed.js:ro
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-db
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: order_db
+      MYSQL_USER: order_user
+      MYSQL_PASSWORD: order_password
+</file>
+
+</files>

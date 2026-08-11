@@ -21,6 +21,10 @@ const routes = {
     '/api/notification': process.env.NOTIFICATION_URL || 'http://localhost:3004'
 };
 
+//API for Health Check
+app.get('/health',(req,res)=>{
+    res.status(200).json({status: 'UP', service: 'api-gateway', timestamp: new Date()});
+})
 
 for(const[route, target] of Object.entries(routes)){
     app.use(route, createProxyMiddleware({

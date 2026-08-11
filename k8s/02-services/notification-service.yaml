@@ -12,12 +12,31 @@ spec:
       labels:
         app: notification-service
     spec:
+      initContainers:
+        - name: wait-for-mongodb
+          image: busybox:1.28
+          command: ['sh', '-c', 'until nc -z mongodb-service 27017; do echo waiting for mongodb; sleep 2; done']
+        - name: wait-for-rabbitmq
+          image: busybox:1.28
+          command: ['sh', '-c', 'until nc -z rabbitmq-service 5672; do echo waiting for rabbitmq; sleep 2; done']
       containers:
         - name: notification-service
           image: notification-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3004
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+            initialDelaySeconds: 5
+            periodSeconds: 5
           env:
             - name: MONGO_URI
               value: "mongodb://admin:password@mongodb-service:27017/notification_db?authSource=admin"

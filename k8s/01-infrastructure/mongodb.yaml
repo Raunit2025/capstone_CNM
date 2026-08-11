@@ -24,6 +24,14 @@ spec:
               value: "admin"
             - name: MONGO_INITDB_ROOT_PASSWORD
               value: "password"
+          volumeMounts:
+            - name: seed-script
+              mountPath: /docker-entrypoint-initdb.d/seed.js
+              subPath: seed.js
+      volumes:
+        - name: seed-script
+          configMap:
+            name: mongodb-seed-config
 ---
 apiVersion: v1
 kind: Service

@@ -166,7 +166,7 @@
         const API_BASE = "http://localhost:30000/api";
         const USER_ID = "test_user_123";
 
-        // 1. Fetch and Display Catalog with Filters
+        // 1. Fetch and Display Catalog with Filters & Ratings
         async function fetchCatalog(queryString = "") {
             try {
                 const response = await fetch(`${API_BASE}/cakes${queryString}`);
@@ -175,19 +175,37 @@
                 const grid = document.getElementById("catalog-grid");
 
                 if (cakes.length === 0) {
-                    grid.innerHTML =
-                        '<p class="col-span-full text-center text-gray-500">No cakes found matching your filters.</p>';
+                    grid.innerHTML = '<p class="col-span-full text-center text-gray-500">No cakes found matching your filters.</p>';
                     return;
                 }
 
-                grid.innerHTML = cakes
+                const cakesWithRatings = await Promise.all(cakes.map(async (cake) => {
+                    try {
+                        const ratingRes = await fetch(`${API_BASE}/rating/${cake._id}`);
+                        const ratingData = await ratingRes.json();
+                        return { 
+                            ...cake, 
+                            averageRating: ratingData.averageRating || 0,
+                            totalRating: ratingData.totalRating || 0
+                        };
+                    } catch (e) {
+                        return { ...cake, averageRating: 0, totalRating: 0 };
+                    }
+                }));
+
+                grid.innerHTML = cakesWithRatings
                     .map(
                         (cake) => `
             <div class="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
                 <img src="${cake.imageReference}" alt="${cake.name}" class="w-full h-48 object-cover">
                 <div class="p-4 flex-grow flex flex-col justify-between">
                     <div>
-                        <h3 class="text-lg font-bold">${cake.name}</h3>
+                        <div class="flex justify-between items-start">
+                            <h3 class="text-lg font-bold">${cake.name}</h3>
+                            <span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2.5 py-0.5 rounded flex items-center">
+                                ⭐ ${cake.averageRating} (${cake.totalRating})
+                            </span>
+                        </div>
                         <p class="text-xs inline-block bg-gray-200 text-gray-700 px-2 py-1 rounded mt-1 mb-2">${cake.category}</p>
                         <p class="text-gray-700 text-sm mb-4">${cake.description}</p>
                     </div>
@@ -196,7 +214,7 @@
                         <div class="flex space-x-2">
                             <button onclick="openReviewsModal('${cake._id}', '${cake.name.replace(/'/g, "\\'")}')" 
                                     class="bg-gray-100 text-gray-700 px-3 py-1 rounded hover:bg-gray-200 transition text-sm">
-                                ⭐ Reviews
+                                Reviews
                             </button>
                             <button onclick="addToBasket(event, '${cake._id}', '${cake.name.replace(/'/g, "\\'")}', ${cake.price})" 
                                     class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition shadow-sm text-sm">
@@ -213,6 +231,7 @@
                 console.error("Error fetching catalog:", error);
             }
         }
+        
         // 2. Filter Handlers
         function applyFilters() {
             const name = document.getElementById("filter-name").value;

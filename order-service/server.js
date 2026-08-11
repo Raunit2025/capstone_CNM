@@ -13,6 +13,21 @@ app.use((req, res, next)=>{
     next();
 });
 
+//API for Health Check
+app.get('/health',async (req, res)=>{
+    try{
+        if(!dbPool){
+        return res.status(503).json({status: 'DOWN', database: 'NOT_INITIALIZED'});
+        }
+        await dbPool.query('SELECT 1');
+        res.status(200).json({status: 'UP', database: 'CONNECTED'});
+    }catch(error){
+        res.status(503).json({status: 'DOWN', database: 'DISCONNECTED', error: error.message});
+    }
+})
+
+
+
 let dbPool;
 
 //API to get basket and total Amount for userId
@@ -134,6 +149,34 @@ app.post('/api/orders/checkout/:userId', async (req, res) => {
         }
         logger.error('Error in checkout api', { error: error.message, correlationId: req.correlationId });
         res.status(500).json({ message: 'Internal Server Error in Checkout API' });
+    }
+});
+
+// API to update order status
+app.patch('/api/orders/:orderId/status', async (req, res) => {
+    try {
+        const { orderId } = req.params;
+        const { status } = req.body; 
+
+        const validStatuses = ['PENDING', 'COMPLETED', 'CANCELLED'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message: 'Invalid status. Must be PENDING, COMPLETED, or CANCELLED.' });
+        }
+
+        const [result] = await dbPool.query(
+            'UPDATE orders SET status = ? WHERE id = ?',
+            [status, orderId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        logger.info('Order status updated', { orderId, status, correlationId: req.correlationId });
+        res.status(200).json({ message: 'Order status updated successfully', orderId, status });
+    } catch (error) {
+        logger.error('Error updating order status', { error: error.message, correlationId: req.correlationId });
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 

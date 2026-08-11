@@ -12,12 +12,28 @@ spec:
       labels:
         app: catalog-service
     spec:
+      initContainers:
+        - name: wait-for-mongodb
+          image: busybox:1.28
+          command: ['sh', '-c', 'until nc -z mongodb-service 27017; do echo waiting for mongodb; sleep 2; done;']
       containers:
         - name: catalog-service
           image: catalog-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3001
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 5
           env:
             - name: MONGO_URI
               value: "mongodb://admin:password@mongodb-service:27017/catalog_db?authSource=admin"

@@ -12,12 +12,28 @@ spec:
       labels:
         app: rating-service
     spec:
+      initContainers:
+        - name: wait-for-mongodb
+          image: busybox:1.28
+          command: ['sh', '-c', 'until nc -z mongodb-service 27017; do echo waiting for mongodb; sleep 2; done;']
       containers:
         - name: rating-service
           image: rating-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3003
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 5
+            periodSeconds: 5
           env:
             - name: MONGO_URI
               value: "mongodb://admin:password@mongodb-service:27017/rating_db?authSource=admin"

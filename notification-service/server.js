@@ -6,6 +6,7 @@ const nodemailer = require("nodemailer");
 const cors = require("cors");
 const logger = require("./config/logger");
 const Notification = require("./models/Notification");
+const { promises } = require("nodemailer/lib/xoauth2");
 
 const app = express();
 app.use(cors());
@@ -17,9 +18,10 @@ const MONGO_URI =
 mongoose
   .connect(MONGO_URI)
   .then(() => logger.info("MongoDb connection Successful"))
-  .catch((error) =>
-    logger.error("Error in connecting to MongoDB", { error: error.message }),
-  );
+  .catch((error) => {
+    logger.error("Error in connecting to MongoDB", { error: error.message });
+    process.exit(1);
+  });
 
 let transporter = null;
 
@@ -45,11 +47,11 @@ if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
   );
 }
 
-async function startRabbitMQConsumer() {
+async function startRabbitMQConsumer(retries = 5) {
   const RABBITMQ_URL =
     process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
-  
-  try {
+  while(retries){
+    try {
     const connection = await amqp.connect(RABBITMQ_URL);
     const channel = await connection.createChannel();
     const queue = "order_notifications";
@@ -100,10 +102,29 @@ async function startRabbitMQConsumer() {
         }
       }
     });
+    break;
   } catch (error) {
-    logger.error("RabbitMQ connection Error", { error: error.message });
+    logger.error(`RabbitMQ Connection Failed, retrying... (${retries} left)`);
+    retries -= 1;
+    await new Promise((res)=> setTimeout(res, 5000));
+
+    if(retries === 0){
+      logger.info('RabbitMQ Connection Completely Failed, exiting process...');
+      process.exit(1);
+    }
   }
+  }
+  
 }
+
+//API for health check
+app.get('/health',(req,res)=>{
+  const isDbConnected = mongoose.connection.readyState === 1;
+  if(isDbConnected){
+    return res.status(200).json({status: 'UP', database: 'CONNECTED'});
+  }
+  return res.status(503).json({status: 'DOWN', database: 'DISCONNECTED'});
+});
 
 //API to retiriev notification
 app.get("/api/notification/:orderId", async (req, res) => {

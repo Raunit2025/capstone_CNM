@@ -15,7 +15,6 @@ app.use((req, res, next)=>{
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://admin:password@localhost:27017/catalog_db?authSource=admin';
 
-
 mongoose.connect(MONGO_URI)
 .then(() => {
     logger.info('MongoDB Connected Successfully');
@@ -25,6 +24,14 @@ mongoose.connect(MONGO_URI)
     process.exit(1);
 });
 
+//API for Health Check
+app.get('/health',(req, res)=>{
+    const isDatabaseConnected = mongoose.connection.readyState === 1;
+    if(isDatabaseConnected){
+        return res.status(200).json({status: 'UP', database: 'CONNECTED'});
+    }
+    return res.status(503).json({status: 'DOWN', database: 'DISCONNECTED'});
+})
 
 //API to get List and filter cakes
 app.get('/api/cakes', async (req,res)=>{

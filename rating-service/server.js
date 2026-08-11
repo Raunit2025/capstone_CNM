@@ -25,6 +25,15 @@ mongoose
     process.exit(1);
   });
 
+//API for Health Check
+app.get('/health',(req,res)=>{
+  const isDbConnected = mongoose.connection.readyState === 1;
+  if(isDbConnected){
+    return res.status(200).json({status: 'UP', database: 'CONNECTED'});
+  }
+  return res.status(503).json({status: 'DOWN', database: 'DISCONNECTED'});
+})
+
 //API to submit new rating
 app.post("/api/rating", async (req, res) => {
   try {

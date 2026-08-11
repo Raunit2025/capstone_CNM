@@ -9,11 +9,12 @@ const dbConfig = {
   database: process.env.MYSQL_DATABASE || "order_db",
 };
 
-async function initDatabase() {
-  try {
-    const pool = mysql.createPool(dbConfig);
+async function initDatabase(retries = 5) {
+  while (retries) {
+    try {
+      const pool = mysql.createPool(dbConfig);
 
-    await pool.query(`
+      await pool.query(`
                 CREATE TABLE IF NOT EXISTS orders (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     customer_name VARCHAR(255) NOT NULL,
@@ -24,7 +25,7 @@ async function initDatabase() {
                 )
             `);
 
-    await pool.query(`
+      await pool.query(`
                 CREATE TABLE IF NOT EXISTS order_item (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     order_id INT NOT NULL,
@@ -36,7 +37,7 @@ async function initDatabase() {
                 )
             `);
 
-    await pool.query(`
+      await pool.query(`
           CREATE TABLE IF NOT EXISTS basket_items (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id VARCHAR(255) NOT NULL,
@@ -48,13 +49,23 @@ async function initDatabase() {
           )
       `);
 
-    logger.info("MySQL Database tables initialized successfully");
-    return pool;
-  } catch (error) {
-    logger.error("Error in initializing mysql database", {
-      error: error.message,
-    });
-    throw error;
+      logger.info("MySQL Database tables initialized successfully");
+      return pool;
+
+    } catch (error) {
+      logger.error(`Error in initializing mysql database, retrying... (${retries} left)`, {
+        error: error.message,
+      });
+      retries -= 1;
+      
+      await new Promise((res) => setTimeout(res, 5000));
+
+      if(retries === 0){
+        logger.error('MySQL Database initialization completely Failed..., Exiting Process');
+        process.exit(1);
+      }
+      throw error;
+    }
   }
 }
 
