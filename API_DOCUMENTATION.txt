@@ -1,0 +1,295 @@
+================================================================================
+CAKE DELIGHT - MICROSERVICES API TESTING DOCUMENTATION
+================================================================================
+
+Base URL: http://localhost:30000
+Prerequisite: Ensure port forwarding is active:
+  kubectl port-forward service/api-gateway-service 30000:3000
+
+Common Request Header for JSON Payloads:
+  Content-Type: application/json
+
+
+================================================================================
+1. API GATEWAY SYSTEM HEALTH
+================================================================================
+
+[GET] /health
+Description: Verifies the operational status of the API Gateway proxy.
+
+Response (200 OK):
+{
+  "status": "UP",
+  "service": "api-gateway",
+  "timestamp": "2026-08-12T16:30:00.000Z"
+}
+
+
+================================================================================
+2. CAKE CATALOG MICROSERVICE
+================================================================================
+
+[GET] /api/cakes
+Description: Retrieves all available cakes. Supports query parameters for filtering.
+
+Query Parameters (Optional):
+  - name       (string)  : Search by partial name (e.g., ?name=truffle)
+  - category   (string)  : Filter by category (Chocolate, Fruit, Classic, Specialty, Vegan)
+  - minPrice   (number)  : Minimum price threshold
+  - maxPrice   (number)  : Maximum price threshold
+
+Example URL:
+  http://localhost:30000/api/cakes?category=Chocolate&minPrice=100&maxPrice=300
+
+Response (200 OK):
+[
+  {
+    "_id": "660a123456789abcdef01234",
+    "name": "Classic Chocolate Truffle",
+    "description": "A rich, dense chocolate cake covered in smooth chocolate ganache.",
+    "category": "Chocolate",
+    "price": 135.00,
+    "availability": true,
+    "imageReference": "https://images.unsplash.com/photo-1578985545062-69928b1d9587",
+    "createdAt": "2026-08-12T10:00:00.000Z",
+    "updatedAt": "2026-08-12T10:00:00.000Z"
+  }
+]
+
+
+[GET] /api/cakes/:id
+Description: Fetch details of a single cake by its MongoDB ID.
+
+Example URL:
+  http://localhost:30000/api/cakes/660a123456789abcdef01234
+
+Response (200 OK):
+{
+  "_id": "660a123456789abcdef01234",
+  "name": "Classic Chocolate Truffle",
+  "description": "A rich, dense chocolate cake covered in smooth chocolate ganache.",
+  "category": "Chocolate",
+  "price": 135.00,
+  "availability": true,
+  "imageReference": "https://images.unsplash.com/photo-1578985545062-69928b1d9587"
+}
+
+
+[POST] /api/cakes
+Description: Adds a new product to the cake catalog.
+
+Request Body (JSON):
+{
+  "name": "Matcha Green Tea Sponge",
+  "description": "Japanese ceremonial matcha layered sponge cake.",
+  "category": "Specialty",
+  "price": 280.00,
+  "availability": true,
+  "imageReference": "https://images.unsplash.com/photo-1535141192574-5d4897c13136"
+}
+
+Response (201 Created):
+{
+  "_id": "660b987654321fedcba98765",
+  "name": "Matcha Green Tea Sponge",
+  "description": "Japanese ceremonial matcha layered sponge cake.",
+  "category": "Specialty",
+  "price": 280.00,
+  "availability": true,
+  "imageReference": "https://images.unsplash.com/photo-1535141192574-5d4897c13136",
+  "createdAt": "2026-08-12T10:15:00.000Z",
+  "updatedAt": "2026-08-12T10:15:00.000Z"
+}
+
+
+================================================================================
+3. ORDER & BASKET MICROSERVICE
+================================================================================
+
+[GET] /api/orders/basket/:userId
+Description: Retrieves current active shopping cart items and calculated grand total for a user.
+
+Example URL:
+  http://localhost:30000/api/orders/basket/test_user_123
+
+Response (200 OK):
+{
+  "basket": [
+    {
+      "cakeId": "660a123456789abcdef01234",
+      "cakeName": "Classic Chocolate Truffle",
+      "price": "135.00",
+      "quantity": 2
+    }
+  ],
+  "totalAmount": 270
+}
+
+
+[POST] /api/orders/basket/:userId
+Description: Adds an item to the user basket or updates the quantity if the item already exists.
+
+Request Body (JSON):
+{
+  "cakeId": "660a123456789abcdef01234",
+  "cakeName": "Classic Chocolate Truffle",
+  "price": 135.00,
+  "quantity": 1
+}
+
+Response (200 OK):
+{
+  "message": "Item Added",
+  "basket": [
+    {
+      "cakeId": "660a123456789abcdef01234",
+      "cakeName": "Classic Chocolate Truffle",
+      "price": "135.00",
+      "quantity": 1
+    }
+  ]
+}
+
+
+[DELETE] /api/orders/basket/:userId/:cakeId
+Description: Removes a specific item completely from the user basket.
+
+Example URL:
+  http://localhost:30000/api/orders/basket/test_user_123/660a123456789abcdef01234
+
+Response (200 OK):
+{
+  "message": "Item Removed",
+  "basket": []
+}
+
+
+[POST] /api/orders/checkout/:userId
+Description: Executes transaction checkout, creates an order entry in MySQL, empties basket, and emits an 'order_completed' event to RabbitMQ.
+
+Request Body (JSON):
+{
+  "customerName": "Raunit Raj",
+  "customerEmail": "raunit@example.com"
+}
+
+Response (201 Created):
+{
+  "message": "order created successfully",
+  "orderId": 1
+}
+
+
+[PATCH] /api/orders/:orderId/status
+Description: Updates the administrative processing status of an existing order.
+
+Allowed Statuses: "PENDING", "COMPLETED", "CANCELLED"
+
+Request Body (JSON):
+{
+  "status": "COMPLETED"
+}
+
+Response (200 OK):
+{
+  "message": "Order status updated successfully",
+  "orderId": "1",
+  "status": "COMPLETED"
+}
+
+
+================================================================================
+4. RATING MICROSERVICE
+================================================================================
+
+[POST] /api/rating
+Description: Submits a rating score and review comment for a product.
+
+Request Body (JSON):
+{
+  "cakeId": "660a123456789abcdef01234",
+  "userId": "test_user_123",
+  "userName": "Raunit Raj",
+  "rating": 5,
+  "review": "Extremely delicious and delivered fresh!"
+}
+
+Response (201 Created):
+{
+  "message": "Rating Submitted successfully",
+  "data": {
+    "_id": "660c11112222333344445555",
+    "cakeId": "660a123456789abcdef01234",
+    "userId": "test_user_123",
+    "userName": "Raunit Raj",
+    "rating": 5,
+    "review": "Extremely delicious and delivered fresh!",
+    "createdAt": "2026-08-12T10:30:00.000Z"
+  }
+}
+
+
+[GET] /api/rating/:cakeId
+Description: Fetches all customer reviews and computes the calculated average rating for a given cake.
+
+Example URL:
+  http://localhost:30000/api/rating/660a123456789abcdef01234
+
+Response (200 OK):
+{
+  "cakeId": "660a123456789abcdef01234",
+  "averageRating": 5,
+  "totalRating": 1,
+  "review": [
+    {
+      "_id": "660c11112222333344445555",
+      "cakeId": "660a123456789abcdef01234",
+      "userId": "test_user_123",
+      "userName": "Raunit Raj",
+      "rating": 5,
+      "review": "Extremely delicious and delivered fresh!",
+      "createdAt": "2026-08-12T10:30:00.000Z"
+    }
+  ]
+}
+
+
+================================================================================
+5. NOTIFICATION MICROSERVICE
+================================================================================
+
+[GET] /api/notification/stream
+Description: Establishes a Server-Sent Events (SSE) connection to push real-time order confirmation alerts to web clients.
+
+Query Parameter (Required):
+  - email (string) : Email to subscribe to events for
+
+Example URL:
+  http://localhost:30000/api/notification/stream?email=raunit@example.com
+
+Response Stream Headers (200 OK):
+  Content-Type: text/event-stream
+  Cache-Control: no-cache
+  Connection: keep-alive
+
+Sample Event Data Payload emitted on checkout:
+  data: {"title":"RabbitMQ Event Received","message":"Order #1 notification has been processed."}
+
+
+[GET] /api/notification/:orderId
+Description: Retrieves logged notification audit records for a specific order.
+
+Example URL:
+  http://localhost:30000/api/notification/1
+
+Response (200 OK):
+[
+  {
+    "_id": "660d99998888777766665555",
+    "orderId": "1",
+    "customerEmail": "raunit@example.com",
+    "status": "SENT",
+    "message": "Order #1 confirmed. Total: ₹270",
+    "createdAt": "2026-08-12T10:35:00.000Z"
+  }
+]

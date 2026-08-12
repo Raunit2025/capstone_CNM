@@ -98,7 +98,7 @@ Prerequisites
 * Minikube (or local Kubernetes cluster) running.
 * kubectl configured to target your local cluster.
 
-Step 1: Start Minikube
+Step 1: Start Minikube if using minikube (if using kubernetes, then make sure it's running and can skip this)
 minikube start
 
 Step 2: Run Automated Deployment
@@ -114,7 +114,7 @@ Step 3: Verify Cluster Status
 Check that all database, broker, gateway, and microservice pods are running:
 kubectl get pods
 
-Step 4: Expose API Gateway
+Step 4: Expose API Gateway (Do it in new PowerShell keep the previous one running)
 Expose port 3000 of the Gateway service to local port 30000:
 kubectl port-forward service/api-gateway-service 30000:3000
 

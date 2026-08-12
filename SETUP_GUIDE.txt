@@ -1,0 +1,134 @@
+================================================================================
+CAKE DELIGHT - SETUP & STARTUP GUIDE
+Cloud-Native Microservices Engineering Capstone
+================================================================================
+
+This guide provides step-by-step instructions to deploy, run, test, and monitor 
+the Cake Delight microservices application locally using Kubernetes.
+
+================================================================================
+PREREQUISITES
+================================================================================
+Ensure the following tools are installed and running on your local machine:
+1. Docker (Docker Desktop running)
+2. Kubernetes Cluster (Either Docker Desktop's built-in K8s OR Minikube)
+3. kubectl (CLI tool configured to communicate with your cluster)
+
+
+================================================================================
+STEP 1: PREPARE YOUR CLUSTER
+================================================================================
+Ensure your Kubernetes cluster is running and your context is correctly set.
+
+If using Minikube:
+  minikube start
+  kubectl config use-context minikube
+
+If using Docker Desktop (Kubernetes enabled):
+  kubectl config use-context docker-desktop
+
+
+================================================================================
+STEP 2: RUN AUTOMATED DEPLOYMENT
+================================================================================
+We have provided automated scripts that will build the Docker images directly 
+into your cluster's registry and apply all necessary Kubernetes manifests.
+
+For Windows (PowerShell):
+  1. Open PowerShell as Administrator (if execution policies require it).
+  2. Run: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+  3. Run: .\deploy.ps1
+
+For Mac / Linux (Bash):
+  1. Make the script executable: chmod +x deploy.sh
+  2. Run: ./deploy.sh
+
+Wait for the script to finish. You can monitor the pod initialization by running:
+  kubectl get pods -w
+
+Wait until all pods show a status of "Running" and "1/1" (or "2/2") READY. 
+Press Ctrl+C to exit the watch mode.
+
+
+================================================================================
+STEP 3: MANDATORY PORT FORWARDING (CRUCIAL)
+================================================================================
+To ensure stable routing from your host machine to the API Gateway inside the 
+cluster, you MUST establish a port-forward. 
+
+Open a NEW terminal window, run the following command, and LEAVE IT OPEN:
+  
+  kubectl port-forward service/api-gateway-service 30000:3000
+
+* Note: Do not close this terminal while testing the application.
+
+
+================================================================================
+STEP 4: ACCESSING THE APPLICATION
+================================================================================
+With the pods running and the port-forward active, you can now use the app.
+
+1. The Frontend UI:
+   Simply open the `frontend/index.html` file directly in any modern web browser 
+   (e.g., double-click the file or use VS Code Live Server). 
+
+2. The Backend APIs:
+   Base URL: http://localhost:30000/api
+   Gateway Health Check: http://localhost:30000/health
+
+
+================================================================================
+TROUBLESHOOTING: MANUAL DATABASE SEEDING
+================================================================================
+The deployment script uses a ConfigMap to automatically seed the MongoDB catalog.
+However, if you open the frontend and see "No cakes found", the database volume 
+may have cached an empty state. 
+
+To manually force the seed script to run, execute this command in your terminal:
+
+  kubectl exec -it deployment/mongodb-deployment -- mongosh -u admin -p password --authenticationDatabase admin -f /docker-entrypoint-initdb.d/seed.js
+
+Once it outputs the inserted documents, refresh your frontend browser tab.
+
+
+================================================================================
+OBSERVABILITY: LOGGING & MONITORING
+================================================================================
+The application utilizes built-in Kubernetes features and Winston to track 
+system health and structured JSON logs without requiring external dashboards.
+
+1. Distributed Tracing (Correlation ID)
+Every incoming request passing through the API Gateway is assigned a unique 
+`x-correlation-id`. This ID is passed to all downstream microservices, allowing 
+you to trace a single request's lifecycle across multiple service logs.
+
+2. Viewing Live Service Logs
+You can view the live log stream for any specific microservice using its 
+Kubernetes label. Use the following commands:
+  - Gateway Logs:   kubectl logs -l app=api-gateway -f
+  - Order Logs:     kubectl logs -l app=order-service -f
+  - Catalog Logs:   kubectl logs -l app=catalog-service -f
+  - Rating Logs:    kubectl logs -l app=rating-service -f
+  - Notification:   kubectl logs -l app=notification-service -f
+
+3. Checking Health Probes & Cluster Events
+Each microservice exposes a `/health` endpoint that continuously verifies 
+database and message broker connectivity. Kubernetes uses these for liveness 
+and readiness probes. 
+
+To monitor cluster events (like pod restarts or probe failures):
+  kubectl get events --sort-by='.metadata.creationTimestamp'
+
+To inspect the health and status of a specific pod in detail:
+  kubectl describe pod -l app=catalog-service
+
+
+================================================================================
+CLEAN UP / TEARDOWN
+================================================================================
+To remove all Cake Delight resources from your cluster when finished, run:
+
+  kubectl delete -f k8s/ -R
+  kubectl delete configmap mongodb-seed-config
+
+================================================================================

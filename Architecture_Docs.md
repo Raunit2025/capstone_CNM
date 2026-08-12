@@ -99,7 +99,7 @@
 * Minikube (or local Kubernetes cluster) running.
 * `kubectl` configured to target your local cluster.
 
-### Step 1: Start Minikube
+### Step 1: Start Minikube if using minikube (if using kubernetes, then make sure it's running and can skip this)
 ```bash
 minikube start
 ```
