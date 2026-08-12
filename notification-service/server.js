@@ -6,7 +6,6 @@ const nodemailer = require("nodemailer");
 const cors = require("cors");
 const logger = require("./config/logger");
 const Notification = require("./models/Notification");
-const { promises } = require("nodemailer/lib/xoauth2");
 
 const app = express();
 app.use(cors());
@@ -91,9 +90,20 @@ async function startRabbitMQConsumer(retries = 5) {
             orderId: eventData.orderId.toString(),
             customerEmail: eventData.customerEmail,
             status: "SENT",
-            message: `Order #${eventData.orderId} confirmed. Total: $${eventData.totalAmount}`,
+            message: `Order #${eventData.orderId} confirmed. Total: ₹${eventData.totalAmount}`,
           });
           await notification.save();
+
+          const targetEmail = eventData.customerEmail ? eventData.customerEmail.toLowerCase().trim() : '';
+
+          if(sseClients.has(targetEmail)){
+            const clientRes = sseClients.get(targetEmail);
+            const payload = JSON.stringify({
+              title: "RabbitMQ Event Received",
+              message: `Order #${eventData.orderId} notification has been processed.`
+            });
+            clientRes.write(`data: ${payload}\n\n`);
+          }
 
           channel.ack(msg);
 
@@ -126,6 +136,26 @@ app.get('/health',(req,res)=>{
   return res.status(503).json({status: 'DOWN', database: 'DISCONNECTED'});
 });
 
+//API for SSE to stream notifications to the frontend
+const sseClients = new Map();
+
+app.get('/api/notification/stream',(req,res)=>{
+  const email = req.query.email;
+  if(!email) res.status(400).json({message: 'Email is Required'});
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const normalizedEmail = email.toLowerCase().trim();
+  sseClients.set(normalizedEmail, res);
+
+  req.on('close', ()=>{
+    sseClients.delete(normalizedEmail);
+  });
+});
+
 //API to retiriev notification
 app.get("/api/notification/:orderId", async (req, res) => {
   try {
@@ -137,6 +167,8 @@ app.get("/api/notification/:orderId", async (req, res) => {
     res.status(500).json({ message: "Internal Server error" });
   }
 });
+
+
 
 const PORT = process.env.PORT || 3004;
 app.listen(PORT, async () => {

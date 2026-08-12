@@ -244,7 +244,6 @@
         </div>
     </div>
 
-    <!-- Toast Notification -->
     <div id="toast-notification"
         class="fixed bottom-6 right-6 bg-slate-900 border border-emerald-500/40 text-slate-100 px-5 py-4 rounded-2xl shadow-2xl transform transition-all duration-300 translate-y-32 opacity-0 z-[100] flex items-center space-x-3 backdrop-blur-xl">
         <div class="bg-emerald-500/20 text-emerald-400 p-2 rounded-xl">
@@ -257,6 +256,18 @@
             <p id="toast-message" class="text-xs text-slate-400 mt-0.5"></p>
         </div>
         <button onclick="closeToast()" class="text-slate-500 hover:text-white font-bold ml-2 text-lg">&times;</button>
+    </div>
+
+    <div id="sse-toast-notification"
+        class="fixed bottom-24 right-6 bg-slate-900 border border-indigo-500/40 text-slate-100 px-5 py-4 rounded-2xl shadow-2xl transform transition-all duration-300 translate-x-[120%] opacity-0 z-[100] flex items-center space-x-3 backdrop-blur-xl">
+        <div class="bg-indigo-500/20 text-indigo-400 p-2 rounded-xl">
+            <span class="text-lg">🐇</span>
+        </div>
+        <div>
+            <h4 id="sse-toast-title" class="font-bold text-sm text-white">Event Received!</h4>
+            <p id="sse-toast-message" class="text-xs text-slate-400 mt-0.5"></p>
+        </div>
+        <button onclick="closeSseToast()" class="text-slate-500 hover:text-white font-bold ml-2 text-lg">&times;</button>
     </div>
 
     <script>
@@ -386,6 +397,8 @@
         }
 
         async function addToBasket(event, cakeId, cakeName, price) {
+            const btn = event.currentTarget || event.target;
+            
             try {
                 await fetch(`${API_BASE}/orders/basket/${USER_ID}`, {
                     method: "POST",
@@ -394,7 +407,6 @@
                 });
                 updateBasketUI();
 
-                const btn = event.currentTarget;
                 const originalContent = btn.innerHTML;
                 btn.innerHTML = `✓ Added`;
                 btn.classList.replace("bg-rose-600", "bg-emerald-500");
@@ -407,7 +419,6 @@
                 console.error("Error adding to basket:", error);
             }
         }
-
         async function updateBasketUI() {
             try {
                 const response = await fetch(`${API_BASE}/orders/basket/${USER_ID}`);
@@ -476,7 +487,7 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ cakeId, cakeName, price, quantity: change }), // Backend adds this to current total
                 });
-                updateBasketUI();
+                await updateBasketUI();
             } catch (error) {
                 console.error("Error updating quantity:", error);
             }
@@ -487,7 +498,7 @@
                 await fetch(`${API_BASE}/orders/basket/${USER_ID}/${cakeId}`, {
                     method: "DELETE"
                 });
-                updateBasketUI();
+                await updateBasketUI();
             } catch (error) {
                 console.error("Error removing item:", error);
             }
@@ -509,6 +520,7 @@
             const name = document.getElementById('checkout-name').value;
             const email = document.getElementById('checkout-email').value;
 
+            listenForRabbitMQEvent(email);
             try {
                 const response = await fetch(`${API_BASE}/orders/checkout/${USER_ID}`, {
                     method: 'POST',
@@ -626,6 +638,35 @@
         function closeToast() {
             const toast = document.getElementById('toast-notification');
             toast.classList.add('translate-y-32', 'opacity-0');
+        }
+
+        function listenForRabbitMQEvent(email) {
+            const eventSource = new EventSource(`${API_BASE}/notification/stream?email=${encodeURIComponent(email)}`);
+            
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                showSseToast(data.title, data.message);
+                
+                eventSource.close();
+            };
+
+            eventSource.onerror = () => {
+                eventSource.close();
+            };
+        }
+
+        function showSseToast(title, message) {
+            const toast = document.getElementById('sse-toast-notification');
+            document.getElementById('sse-toast-title').innerText = title;
+            document.getElementById('sse-toast-message').innerText = message;
+
+            toast.classList.remove('translate-x-[120%]', 'opacity-0');
+            setTimeout(closeSseToast, 7000);
+        }
+
+        function closeSseToast() {
+            const toast = document.getElementById('sse-toast-notification');
+            toast.classList.add('translate-x-[120%]', 'opacity-0');
         }
 
         fetchCatalog();
