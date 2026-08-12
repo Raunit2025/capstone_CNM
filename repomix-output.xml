@@ -1202,793 +1202,6 @@ app.listen(PORT,() => {
 })
 </file>
 
-<file path="frontend/index.html">
-<!doctype html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cake Delight - Cloud Native Store</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #0f172a;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 9999px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #475569;
-        }
-    </style>
-</head>
-
-<body
-    class="bg-slate-950 font-sans text-slate-200 antialiased selection:bg-rose-500 selection:text-white min-h-screen flex flex-col">
-
-    <!-- Top Navigation -->
-    <nav class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800/80 sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <div
-                    class="h-10 w-10 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-500/20">
-                    <span class="text-xl">🍰</span>
-                </div>
-                <div>
-                    <h1
-                        class="text-xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-                        Cake Delight</h1>
-                    <p class="text-xs text-rose-400/90 font-medium tracking-wide">CLOUD-NATIVE BAKERY</p>
-                </div>
-            </div>
-
-            <button onclick="toggleBasket()"
-                class="relative group bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 px-5 py-2.5 rounded-xl transition-all duration-200 flex items-center space-x-3 shadow-sm hover:border-slate-600">
-                <span class="text-lg">🛒</span>
-                <span class="font-medium text-sm">Basket</span>
-                <span id="basket-count"
-                    class="bg-rose-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm group-hover:scale-110 transition-transform">0</span>
-            </button>
-        </div>
-    </nav>
-
-    <!-- Main Workspace -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
-
-        <!-- Hero Tagline & Toolbar Container -->
-        <div class="mb-10 space-y-6">
-            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800/80 pb-6">
-                <div>
-                    <h2 class="text-3xl font-extrabold text-white tracking-tight sm:text-4xl">Artisanal Cakes, Delivered
-                        Fast</h2>
-                    <p class="text-slate-400 text-sm mt-1">Explore our fresh catalog, backed by event-driven
-                        microservices.</p>
-                </div>
-            </div>
-
-            <!-- Dashboard Filter Toolbar -->
-            <div
-                class="bg-slate-900/60 border border-slate-800/90 p-4 rounded-2xl backdrop-blur-sm shadow-xl space-y-4">
-
-                <!-- Category Quick Pills -->
-                <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none" id="category-pills">
-                    <button onclick="setCategoryPill('', this)"
-                        class="category-pill active-pill px-4 py-2 rounded-xl text-xs font-semibold bg-rose-500 text-white transition shadow-sm whitespace-nowrap">All
-                        Cakes</button>
-                    <button onclick="setCategoryPill('Chocolate', this)"
-                        class="category-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60 transition whitespace-nowrap">Chocolate</button>
-                    <button onclick="setCategoryPill('Fruit', this)"
-                        class="category-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60 transition whitespace-nowrap">Fruit</button>
-                    <button onclick="setCategoryPill('Classic', this)"
-                        class="category-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60 transition whitespace-nowrap">Classic</button>
-                    <button onclick="setCategoryPill('Specialty', this)"
-                        class="category-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60 transition whitespace-nowrap">Specialty</button>
-                    <button onclick="setCategoryPill('Vegan', this)"
-                        class="category-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60 transition whitespace-nowrap">Vegan</button>
-                </div>
-
-                <!-- Hidden select element for JS compatibility -->
-                <select id="filter-category" class="hidden">
-                    <option value="">All Categories</option>
-                    <option value="Chocolate">Chocolate</option>
-                    <option value="Fruit">Fruit</option>
-                    <option value="Classic">Classic</option>
-                    <option value="Specialty">Specialty</option>
-                    <option value="Vegan">Vegan</option>
-                </select>
-
-                <!-- Search and Price Inputs -->
-                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
-                    <div class="sm:col-span-6 relative">
-                        <input type="text" id="filter-name" placeholder="Search cake name..."
-                            class="w-full bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-rose-500 transition" />
-                    </div>
-                    <div class="sm:col-span-2">
-                        <input type="number" id="filter-min" placeholder="Min ₹"
-                            class="w-full bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:border-rose-500 transition" />
-                    </div>
-                    <div class="sm:col-span-2">
-                        <input type="number" id="filter-max" placeholder="Max ₹"
-                            class="w-full bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:border-rose-500 transition" />
-                    </div>
-                    <div class="sm:col-span-2 flex gap-2">
-                        <button onclick="applyFilters()"
-                            class="w-full bg-rose-600 hover:bg-rose-500 text-white font-semibold py-2.5 px-3 rounded-xl text-sm transition shadow-md shadow-rose-600/20">
-                            Apply
-                        </button>
-                        <button onclick="resetFiltersUI()"
-                            class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white px-3 rounded-xl text-sm transition">
-                            ✕
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Catalog Grid -->
-        <div id="catalog-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Cakes rendered via JS -->
-        </div>
-    </main>
-
-    <!-- Basket Modal -->
-    <div id="basket-modal"
-        class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden justify-center items-center z-50 p-4">
-        <div
-            class="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden">
-            <div class="flex justify-between items-center mb-6">
-                <div class="flex items-center space-x-2">
-                    <span class="text-xl">🛍️</span>
-                    <h2 class="text-xl font-bold text-white">Your Cart</h2>
-                </div>
-                <button onclick="toggleBasket()"
-                    class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
-            </div>
-
-            <div id="basket-items" class="space-y-3 max-h-72 overflow-y-auto mb-6 pr-1">
-                <!-- Items injected here -->
-            </div>
-
-            <div class="border-t border-slate-800 pt-4 flex justify-between items-center mb-6">
-                <span class="text-slate-400 font-medium">Total Amount</span>
-                <span class="text-2xl font-black text-emerald-400">₹<span id="basket-total">0.00</span></span>
-            </div>
-
-            <div class="flex gap-3">
-                <button onclick="toggleBasket()"
-                    class="w-1/2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 rounded-xl text-sm transition">
-                    Close
-                </button>
-                <button onclick="checkout()"
-                    class="w-1/2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl text-sm transition shadow-lg shadow-emerald-500/20">
-                    Checkout Now
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Checkout Modal -->
-    <div id="checkout-modal"
-        class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden justify-center items-center z-50 p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl w-full max-w-md p-6">
-            <h2 class="text-xl font-bold mb-2 text-white">Checkout Details</h2>
-            <p class="text-xs text-slate-400 mb-6">Enter details to dispatch your order notification via RabbitMQ.</p>
-
-            <form id="checkout-form" onsubmit="submitCheckout(event)">
-                <div class="mb-4">
-                    <label class="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">Full
-                        Name</label>
-                    <input type="text" id="checkout-name" required
-                        class="w-full bg-slate-950 border border-slate-800 text-slate-200 p-3 rounded-xl text-sm focus:outline-none focus:border-emerald-500 transition" />
-                </div>
-                <div class="mb-6">
-                    <label class="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">Email
-                        Address</label>
-                    <input type="email" id="checkout-email" required
-                        class="w-full bg-slate-950 border border-slate-800 text-slate-200 p-3 rounded-xl text-sm focus:outline-none focus:border-emerald-500 transition" />
-                </div>
-                <div class="flex gap-3">
-                    <button type="button" onclick="toggleCheckoutModal()"
-                        class="w-1/2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 rounded-xl text-sm transition">
-                        Cancel
-                    </button>
-                    <button type="submit"
-                        class="w-1/2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl text-sm transition shadow-lg shadow-emerald-500/20">
-                        Confirm Order
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Reviews Modal -->
-    <div id="reviews-modal"
-        class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden justify-center items-center z-50 p-4">
-        <div
-            class="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] flex flex-col">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-white" id="review-cake-title">Reviews</h2>
-                <button onclick="toggleReviewsModal()"
-                    class="text-slate-400 hover:text-white font-bold text-xl">&times;</button>
-            </div>
-
-            <div id="reviews-list" class="space-y-3 mb-4 overflow-y-auto flex-grow border-b border-slate-800/80 pr-1">
-                <!-- Reviews injected here -->
-            </div>
-
-            <form id="review-form" onsubmit="submitReview(event)" class="space-y-3 pt-2">
-                <input type="hidden" id="review-cake-id" />
-                <div class="grid grid-cols-2 gap-3">
-                    <input type="text" id="review-name" placeholder="Your Name" required
-                        class="bg-slate-950 border border-slate-800 text-slate-200 p-2.5 rounded-xl text-xs focus:outline-none focus:border-amber-500" />
-                    <select id="review-rating" required
-                        class="bg-slate-950 border border-slate-800 text-slate-200 p-2.5 rounded-xl text-xs focus:outline-none focus:border-amber-500">
-                        <option value="5">5 ⭐ Excellent</option>
-                        <option value="4">4 ⭐ Good</option>
-                        <option value="3">3 ⭐ Average</option>
-                        <option value="2">2 ⭐ Poor</option>
-                        <option value="1">1 ⭐ Terrible</option>
-                    </select>
-                </div>
-                <textarea id="review-text" placeholder="Write your review here..."
-                    class="w-full bg-slate-950 border border-slate-800 text-slate-200 p-2.5 rounded-xl text-xs focus:outline-none focus:border-amber-500"
-                    rows="2"></textarea>
-                <button type="submit"
-                    class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-xl text-xs transition shadow-md shadow-amber-500/20">
-                    Submit Review
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Toast Notification -->
-    <div id="toast-notification"
-        class="fixed bottom-6 right-6 bg-slate-900 border border-emerald-500/40 text-slate-100 px-5 py-4 rounded-2xl shadow-2xl transform transition-all duration-300 translate-y-32 opacity-0 z-[100] flex items-center space-x-3 backdrop-blur-xl">
-        <div class="bg-emerald-500/20 text-emerald-400 p-2 rounded-xl">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-            </svg>
-        </div>
-        <div>
-            <h4 class="font-bold text-sm text-white">Order Placed Successfully!</h4>
-            <p id="toast-message" class="text-xs text-slate-400 mt-0.5"></p>
-        </div>
-        <button onclick="closeToast()" class="text-slate-500 hover:text-white font-bold ml-2 text-lg">&times;</button>
-    </div>
-
-    <script>
-        const API_BASE = "http://localhost:30000/api";
-        const USER_ID = "test_user_123";
-
-        function setCategoryPill(category, pillElement) {
-            document.querySelectorAll('.category-pill').forEach(el => {
-                el.classList.remove('bg-rose-500', 'text-white', 'shadow-sm');
-                el.classList.add('bg-slate-800', 'text-slate-300', 'hover:bg-slate-700', 'border', 'border-slate-700/60');
-            });
-
-            pillElement.classList.remove('bg-slate-800', 'text-slate-300', 'hover:bg-slate-700', 'border', 'border-slate-700/60');
-            pillElement.classList.add('bg-rose-500', 'text-white', 'shadow-sm');
-
-            document.getElementById('filter-category').value = category;
-            applyFilters();
-        }
-
-        function resetFiltersUI() {
-            document.getElementById("filter-name").value = "";
-            document.getElementById("filter-category").value = "";
-            document.getElementById("filter-min").value = "";
-            document.getElementById("filter-max").value = "";
-
-            const firstPill = document.querySelector('.category-pill');
-            if (firstPill) setCategoryPill('', firstPill);
-            fetchCatalog();
-        }
-
-        async function fetchCatalog(queryString = "") {
-            try {
-                const response = await fetch(`${API_BASE}/cakes${queryString}`);
-                const cakes = await response.json();
-
-                const grid = document.getElementById("catalog-grid");
-
-                if (!cakes || cakes.length === 0) {
-                    grid.innerHTML = `
-                        <div class="col-span-full text-center py-16 bg-slate-900/30 border border-slate-800/60 rounded-3xl">
-                            <p class="text-slate-500 font-medium text-sm">No cakes found matching your filter options.</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                const cakesWithRatings = await Promise.all(cakes.map(async (cake) => {
-                    try {
-                        const ratingRes = await fetch(`${API_BASE}/rating/${cake._id}`);
-                        const ratingData = await ratingRes.json();
-                        return {
-                            ...cake,
-                            averageRating: ratingData.averageRating || 0,
-                            totalRating: ratingData.totalRating || 0
-                        };
-                    } catch (e) {
-                        return { ...cake, averageRating: 0, totalRating: 0 };
-                    }
-                }));
-
-                grid.innerHTML = cakesWithRatings
-                    .map(
-                        (cake) => `
-            <div class="group bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-rose-950/10">
-                <div class="relative overflow-hidden aspect-[16/10]">
-                    <img src="${cake.imageReference}" alt="${cake.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
-                    <div class="absolute top-3 right-3 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 px-2.5 py-1 rounded-full text-xs font-semibold text-amber-400 flex items-center shadow-md">
-                        ⭐ ${cake.averageRating} <span class="text-slate-400 text-[10px] ml-1">(${cake.totalRating})</span>
-                    </div>
-                    <span class="absolute bottom-3 left-3 bg-rose-500/90 text-white backdrop-blur-md text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                        ${cake.category}
-                    </span>
-                </div>
-
-                <div class="p-5 flex-grow flex flex-col justify-between space-y-4">
-                    <div>
-                        <h3 class="text-lg font-bold text-white group-hover:text-rose-400 transition-colors">${cake.name}</h3>
-                        <p class="text-slate-400 text-xs mt-2 line-clamp-2 leading-relaxed">${cake.description}</p>
-                    </div>
-
-                    <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                        <div>
-                            <span class="text-[10px] text-slate-500 block uppercase font-bold tracking-wider">Price</span>
-                            <span class="text-lg font-black text-emerald-400">₹${cake.price}</span>
-                        </div>
-
-                        <div class="flex items-center space-x-2">
-                            <button onclick="openReviewsModal('${cake._id}', '${cake.name.replace(/'/g, "\\'")}')" 
-                                    class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl text-xs font-semibold transition border border-slate-700/60">
-                                Reviews
-                            </button>
-                            <button onclick="addToBasket(event, '${cake._id}', '${cake.name.replace(/'/g, "\\'")}', ${cake.price})" 
-                                    class="bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition shadow-md shadow-rose-600/20 flex items-center space-x-1">
-                                <span>+ Add</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `
-                    )
-                    .join("");
-            } catch (error) {
-                console.error("Error fetching catalog:", error);
-            }
-        }
-
-        function applyFilters() {
-            const name = document.getElementById("filter-name").value;
-            const category = document.getElementById("filter-category").value;
-            const minPrice = document.getElementById("filter-min").value;
-            const maxPrice = document.getElementById("filter-max").value;
-
-            const params = new URLSearchParams();
-            if (name) params.append("name", name);
-            if (category) params.append("category", category);
-            if (minPrice) params.append("minPrice", minPrice);
-            if (maxPrice) params.append("maxPrice", maxPrice);
-
-            const queryString = params.toString() ? `?${params.toString()}` : "";
-            fetchCatalog(queryString);
-        }
-
-        function resetFilters() {
-            resetFiltersUI();
-        }
-
-        async function addToBasket(event, cakeId, cakeName, price) {
-            try {
-                await fetch(`${API_BASE}/orders/basket/${USER_ID}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ cakeId, cakeName, price, quantity: 1 }),
-                });
-                updateBasketUI();
-
-                const btn = event.currentTarget;
-                const originalContent = btn.innerHTML;
-                btn.innerHTML = `✓ Added`;
-                btn.classList.replace("bg-rose-600", "bg-emerald-500");
-
-                setTimeout(() => {
-                    btn.innerHTML = originalContent;
-                    btn.classList.replace("bg-emerald-500", "bg-rose-600");
-                }, 1000);
-            } catch (error) {
-                console.error("Error adding to basket:", error);
-            }
-        }
-
-        async function updateBasketUI() {
-            try {
-                const response = await fetch(`${API_BASE}/orders/basket/${USER_ID}`);
-                const data = await response.json();
-
-                document.getElementById("basket-count").innerText = data.basket.length;
-                document.getElementById("basket-total").innerText = data.totalAmount.toFixed(2);
-
-                const basketContainer = document.getElementById("basket-items");
-                if (data.basket.length === 0) {
-                    basketContainer.innerHTML = '<p class="text-slate-500 text-xs text-center py-8">Your basket is empty.</p>';
-                    return;
-                }
-
-                basketContainer.innerHTML = data.basket
-                    .map(
-                        (item) => `
-                    <div class="flex justify-between items-center bg-slate-950/60 p-3 rounded-xl border border-slate-800 mb-3 group">
-                        <div class="flex-grow">
-                            <p class="font-semibold text-slate-200 text-xs">${item.cakeName}</p>
-                            
-                            <!-- Quantity Controls -->
-                            <div class="flex items-center gap-3 mt-2">
-                                <div class="flex items-center bg-slate-800 rounded-lg overflow-hidden border border-slate-700/60">
-                                    <button onclick="updateQuantity('${item.cakeId}', '${item.cakeName.replace(/'/g, "\\'")}', ${item.price}, ${item.quantity}, -1)" 
-                                        class="px-2.5 py-1 text-slate-400 hover:text-white hover:bg-slate-700 transition font-bold">-</button>
-                                    <span class="text-[11px] font-bold text-slate-200 px-2 min-w-[24px] text-center">${item.quantity}</span>
-                                    <button onclick="updateQuantity('${item.cakeId}', '${item.cakeName.replace(/'/g, "\\'")}', ${item.price}, ${item.quantity}, 1)" 
-                                        class="px-2.5 py-1 text-slate-400 hover:text-white hover:bg-slate-700 transition font-bold">+</button>
-                                </div>
-                                <p class="text-[11px] text-slate-400">× ₹${item.price}</p>
-                            </div>
-                        </div>
-                        
-                        <div class="flex flex-col items-end gap-2 ml-4">
-                            <!-- Trash Button -->
-                            <button onclick="removeFromBasket('${item.cakeId}')" 
-                                class="text-slate-600 hover:text-rose-500 transition-colors p-1" title="Remove from basket">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                </svg>
-                            </button>
-                            <!-- Line Total -->
-                            <p class="font-bold text-emerald-400 text-sm">₹${(item.quantity * item.price).toFixed(2)}</p>
-                        </div>
-                    </div>
-                `
-                    ).join("");
-            } catch (error) {
-                console.error("Error fetching basket:", error);
-            }
-        }
-
-        async function updateQuantity(cakeId, cakeName, price, currentQuantity, change) {
-            const newQuantity = currentQuantity + change;
-
-            // If dropping below 1, remove the item completely
-            if (newQuantity <= 0) {
-                await removeFromBasket(cakeId);
-                return;
-            }
-
-            try {
-                await fetch(`${API_BASE}/orders/basket/${USER_ID}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ cakeId, cakeName, price, quantity: change }), // Backend adds this to current total
-                });
-                updateBasketUI();
-            } catch (error) {
-                console.error("Error updating quantity:", error);
-            }
-        }
-
-        async function removeFromBasket(cakeId) {
-            try {
-                await fetch(`${API_BASE}/orders/basket/${USER_ID}/${cakeId}`, {
-                    method: "DELETE"
-                });
-                updateBasketUI();
-            } catch (error) {
-                console.error("Error removing item:", error);
-            }
-        }
-        function checkout() {
-            toggleBasket();
-            toggleCheckoutModal();
-        }
-
-        function toggleCheckoutModal() {
-            const modal = document.getElementById('checkout-modal');
-            modal.classList.toggle('hidden');
-            modal.classList.toggle('flex');
-            document.getElementById('checkout-form').reset();
-        }
-
-        async function submitCheckout(event) {
-            event.preventDefault();
-            const name = document.getElementById('checkout-name').value;
-            const email = document.getElementById('checkout-email').value;
-
-            try {
-                const response = await fetch(`${API_BASE}/orders/checkout/${USER_ID}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ customerName: name, customerEmail: email })
-                });
-
-                if (response.ok) {
-                    toggleCheckoutModal();
-                    updateBasketUI();
-                    showToast(email);
-                } else {
-                    const err = await response.json();
-                    alert(`Checkout failed: ${err.message}`);
-                }
-            } catch (error) {
-                console.error('Error during checkout:', error);
-            }
-        }
-
-        function toggleReviewsModal() {
-            const modal = document.getElementById('reviews-modal');
-            modal.classList.toggle('hidden');
-            modal.classList.toggle('flex');
-            document.getElementById('review-form').reset();
-        }
-
-        async function openReviewsModal(cakeId, cakeName) {
-            document.getElementById('review-cake-title').innerText = cakeName;
-            document.getElementById('review-cake-id').value = cakeId;
-            const list = document.getElementById('reviews-list');
-            list.innerHTML = '<p class="text-center text-slate-500 py-6 text-xs">Loading reviews...</p>';
-
-            toggleReviewsModal();
-
-            try {
-                const response = await fetch(`${API_BASE}/rating/${cakeId}`);
-                const data = await response.json();
-
-                if (data.totalRating === 0 || !data.review || data.review.length === 0) {
-                    list.innerHTML = '<p class="text-center text-slate-500 py-6 text-xs">No reviews yet. Be the first to leave one!</p>';
-                    return;
-                }
-
-                list.innerHTML = data.review.map(r => `
-                    <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="font-bold text-xs text-slate-300">${r.userName}</span>
-                            <span class="text-amber-400 text-xs">${'★'.repeat(r.rating)}<span class="text-slate-700">${'★'.repeat(5 - r.rating)}</span></span>
-                        </div>
-                        <p class="text-slate-400 text-xs leading-relaxed">${r.review || ''}</p>
-                    </div>
-                `).join('');
-            } catch (error) {
-                list.innerHTML = '<p class="text-rose-400 py-6 text-center text-xs">Failed to load reviews.</p>';
-            }
-        }
-
-        async function submitReview(event) {
-            event.preventDefault();
-            const cakeId = document.getElementById('review-cake-id').value;
-            const userName = document.getElementById('review-name').value;
-            const rating = document.getElementById('review-rating').value;
-            const review = document.getElementById('review-text').value;
-
-            try {
-                const response = await fetch(`${API_BASE}/rating`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        cakeId,
-                        userId: USER_ID,
-                        userName,
-                        rating: Number(rating),
-                        review
-                    })
-                });
-
-                if (response.ok) {
-                    const btn = event.target.querySelector('button[type="submit"]');
-                    btn.innerText = 'Submitted!';
-                    btn.classList.replace('bg-amber-500', 'bg-emerald-500');
-
-                    setTimeout(() => {
-                        toggleReviewsModal();
-                        fetchCatalog();
-                        btn.innerText = 'Submit Review';
-                        btn.classList.replace('bg-emerald-500', 'bg-amber-500');
-                    }, 1000);
-                }
-            } catch (error) {
-                console.error('Error submitting review:', error);
-            }
-        }
-
-        function toggleBasket() {
-            const modal = document.getElementById("basket-modal");
-            modal.classList.toggle("hidden");
-            modal.classList.toggle("flex");
-            if (!modal.classList.contains("hidden")) {
-                updateBasketUI();
-            }
-        }
-
-        function showToast(email) {
-            const toast = document.getElementById('toast-notification');
-            const message = document.getElementById('toast-message');
-
-            message.innerText = `Confirmation sent to ${email}`;
-            toast.classList.remove('translate-y-32', 'opacity-0');
-
-            setTimeout(closeToast, 5000);
-        }
-
-        function closeToast() {
-            const toast = document.getElementById('toast-notification');
-            toast.classList.add('translate-y-32', 'opacity-0');
-        }
-
-        fetchCatalog();
-        updateBasketUI();
-    </script>
-</body>
-
-</html>
-</file>
-
-<file path="notification-service/server.js">
-require("dotenv").config();
-const express = require("express");
-const mongoose = require("mongoose");
-const amqp = require("amqplib");
-const nodemailer = require("nodemailer");
-const cors = require("cors");
-const logger = require("./config/logger");
-const Notification = require("./models/Notification");
-const { promises } = require("nodemailer/lib/xoauth2");
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-const MONGO_URI =
-  process.env.MONGO_URI ||
-  "mongodb://admin:password@localhost:27017/notification_db?authSource=admin";
-mongoose
-  .connect(MONGO_URI)
-  .then(() => logger.info("MongoDb connection Successful"))
-  .catch((error) => {
-    logger.error("Error in connecting to MongoDB", { error: error.message });
-    process.exit(1);
-  });
-
-let transporter = null;
-
-if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
-  transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_APP_PASSWORD,
-    },
-  });
-
-  transporter.verify((error, success) => {
-    if (error) {
-      logger.error("Gmail SMTP connection failed", { error: error.message });
-    } else {
-      logger.info("Live Gmail Transporter is ready to send messages");
-    }
-  });
-} else {
-  logger.warn(
-    "No Gmail credentials found in .env. Falling back to MOCK email mode.",
-  );
-}
-
-async function startRabbitMQConsumer(retries = 5) {
-  const RABBITMQ_URL =
-    process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
-  while(retries){
-    try {
-    const connection = await amqp.connect(RABBITMQ_URL);
-    const channel = await connection.createChannel();
-    const queue = "order_notifications";
-
-    await channel.assertQueue(queue, { durable: true });
-    logger.info("RabbitMQ connected, waiting for order events...");
-
-    channel.consume(queue, async (msg) => {
-      if (msg !== null) {
-        const eventData = JSON.parse(msg.content.toString());
-        logger.info("Received Order completion event", {
-          orderId: eventData.orderId,
-        });
-
-        try {
-          if (transporter) {
-            await transporter.sendMail({
-              from: `"Cake Delight" <${process.env.GMAIL_USER}>`,
-              to: eventData.customerEmail,
-              subject: `Your Order Confirmation #${eventData.orderId}`,
-              text: `Order #${eventData.orderId} confirmed. Total: ₹${eventData.totalAmount}`,
-              html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-                    <h2 style="color: #ff6b6b;">Cake Delight</h2>
-                    <h3>Thank you for your order!</h3>
-                    <p>Your order with orderID<b>#${eventData.orderId}</b> has been confirmed.</p>
-                    <p><b>Total Amount Paid:</b> ₹${eventData.totalAmount}</p>
-                </div>
-              `,
-            });
-            logger.info(`Email successfully sent to ${eventData.customerEmail}`);
-          } else {
-            logger.info(`[MOCK EMAIL OUTBOUND] To: ${eventData.customerEmail} | Body: Order #${eventData.orderId} confirmed. Total: ₹${eventData.totalAmount}`);
-          }
-
-          const notification = new Notification({
-            orderId: eventData.orderId.toString(),
-            customerEmail: eventData.customerEmail,
-            status: "SENT",
-            message: `Order #${eventData.orderId} confirmed. Total: $${eventData.totalAmount}`,
-          });
-          await notification.save();
-
-          channel.ack(msg);
-
-        } catch (error) {
-          logger.error("Error processing notification", { error: error.message });
-        }
-      }
-    });
-    break;
-  } catch (error) {
-    logger.error(`RabbitMQ Connection Failed, retrying... (${retries} left)`);
-    retries -= 1;
-    await new Promise((res)=> setTimeout(res, 5000));
-
-    if(retries === 0){
-      logger.info('RabbitMQ Connection Completely Failed, exiting process...');
-      process.exit(1);
-    }
-  }
-  }
-  
-}
-
-//API for health check
-app.get('/health',(req,res)=>{
-  const isDbConnected = mongoose.connection.readyState === 1;
-  if(isDbConnected){
-    return res.status(200).json({status: 'UP', database: 'CONNECTED'});
-  }
-  return res.status(503).json({status: 'DOWN', database: 'DISCONNECTED'});
-});
-
-//API to retiriev notification
-app.get("/api/notification/:orderId", async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const notifications = await Notification.find({ orderId });
-    res.status(200).json(notifications);
-  } catch (error) {
-    logger.error("Error in fetching notification", { error: error.message });
-    res.status(500).json({ message: "Internal Server error" });
-  }
-});
-
-const PORT = process.env.PORT || 3004;
-app.listen(PORT, async () => {
-  logger.info(`Notification Service is running on PORT ${PORT}`);
-  await startRabbitMQConsumer();
-});
-</file>
-
 <file path="order-service/config/initDb.js">
 const mysql = require("mysql2/promise");
 const logger = require("./logger").logger;
@@ -2373,6 +1586,866 @@ app.get("/api/rating/:cakeId", async (req, res) => {
 const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => {
   logger.info(`Rating service is running on PORT ${PORT}`);
+});
+</file>
+
+<file path="frontend/index.html">
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cake Delight - Cloud Native Store</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-slate-950 font-sans text-slate-200 antialiased selection:bg-rose-500 selection:text-white min-h-screen flex flex-col">
+
+    <!-- Top Navigation -->
+    <nav class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800/80 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div
+                    class="h-10 w-10 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-500/20">
+                    <span class="text-xl">🍰</span>
+                </div>
+                <div>
+                    <h1
+                        class="text-xl font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                        Cake Delight</h1>
+                    <p class="text-xs text-rose-400/90 font-medium tracking-wide">CLOUD-NATIVE BAKERY</p>
+                </div>
+            </div>
+
+            <button onclick="toggleBasket()"
+                class="relative group bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 px-5 py-2.5 rounded-xl transition-all duration-200 flex items-center space-x-3 shadow-sm hover:border-slate-600">
+                <span class="text-lg">🛒</span>
+                <span class="font-medium text-sm">Basket</span>
+                <span id="basket-count"
+                    class="bg-rose-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm group-hover:scale-110 transition-transform">0</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Workspace -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+
+        <!-- Hero Tagline & Toolbar Container -->
+        <div class="mb-10 space-y-6">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800/80 pb-6">
+                <div>
+                    <h2 class="text-3xl font-extrabold text-white tracking-tight sm:text-4xl">Artisanal Cakes, Delivered
+                        Fast</h2>
+                    <p class="text-slate-400 text-sm mt-1">Explore our fresh catalog, backed by event-driven
+                        microservices.</p>
+                </div>
+            </div>
+
+            <!-- Dashboard Filter Toolbar -->
+            <div
+                class="bg-slate-900/60 border border-slate-800/90 p-4 rounded-2xl backdrop-blur-sm shadow-xl space-y-4">
+
+                <!-- Category Quick Pills -->
+                <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none" id="category-pills">
+                    <button onclick="setCategoryPill('', this)"
+                        class="category-pill active-pill px-4 py-2 rounded-xl text-xs font-semibold bg-rose-500 text-white transition shadow-sm whitespace-nowrap">All
+                        Cakes</button>
+                    <button onclick="setCategoryPill('Chocolate', this)"
+                        class="category-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60 transition whitespace-nowrap">Chocolate</button>
+                    <button onclick="setCategoryPill('Fruit', this)"
+                        class="category-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60 transition whitespace-nowrap">Fruit</button>
+                    <button onclick="setCategoryPill('Classic', this)"
+                        class="category-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60 transition whitespace-nowrap">Classic</button>
+                    <button onclick="setCategoryPill('Specialty', this)"
+                        class="category-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60 transition whitespace-nowrap">Specialty</button>
+                    <button onclick="setCategoryPill('Vegan', this)"
+                        class="category-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60 transition whitespace-nowrap">Vegan</button>
+                </div>
+
+                <!-- Hidden select element for JS compatibility -->
+                <select id="filter-category" class="hidden">
+                    <option value="">All Categories</option>
+                    <option value="Chocolate">Chocolate</option>
+                    <option value="Fruit">Fruit</option>
+                    <option value="Classic">Classic</option>
+                    <option value="Specialty">Specialty</option>
+                    <option value="Vegan">Vegan</option>
+                </select>
+
+                <!-- Search and Price Inputs -->
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
+                    <div class="sm:col-span-6 relative">
+                        <input type="text" id="filter-name" placeholder="Search cake name..."
+                            class="w-full bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 px-4 py-2.5 rounded-xl text-sm focus:outline-none focus:border-rose-500 transition" />
+                    </div>
+                    <div class="sm:col-span-2">
+                        <input type="number" id="filter-min" placeholder="Min ₹"
+                            class="w-full bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:border-rose-500 transition" />
+                    </div>
+                    <div class="sm:col-span-2">
+                        <input type="number" id="filter-max" placeholder="Max ₹"
+                            class="w-full bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-500 px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:border-rose-500 transition" />
+                    </div>
+                    <div class="sm:col-span-2 flex gap-2">
+                        <button onclick="applyFilters()"
+                            class="w-full bg-rose-600 hover:bg-rose-500 text-white font-semibold py-2.5 px-3 rounded-xl text-sm transition shadow-md shadow-rose-600/20">
+                            Apply
+                        </button>
+                        <button onclick="resetFiltersUI()"
+                            class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white px-3 rounded-xl text-sm transition">
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Catalog Grid -->
+        <div id="catalog-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Cakes rendered via JS -->
+        </div>
+    </main>
+
+    <!-- Basket Modal -->
+    <div id="basket-modal"
+        class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden justify-center items-center z-50 p-4">
+        <div
+            class="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xl">🛍️</span>
+                    <h2 class="text-xl font-bold text-white">Your Cart</h2>
+                </div>
+                <button onclick="toggleBasket()"
+                    class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+            </div>
+
+            <div id="basket-items" class="space-y-3 max-h-72 overflow-y-auto mb-6 pr-1">
+                <!-- Items injected here -->
+            </div>
+
+            <div class="border-t border-slate-800 pt-4 flex justify-between items-center mb-6">
+                <span class="text-slate-400 font-medium">Total Amount</span>
+                <span class="text-2xl font-black text-emerald-400">₹<span id="basket-total">0.00</span></span>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="toggleBasket()"
+                    class="w-1/2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 rounded-xl text-sm transition">
+                    Close
+                </button>
+                <button onclick="checkout()"
+                    class="w-1/2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl text-sm transition shadow-lg shadow-emerald-500/20">
+                    Checkout Now
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div id="checkout-modal"
+        class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden justify-center items-center z-50 p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl w-full max-w-md p-6">
+            <h2 class="text-xl font-bold mb-2 text-white">Checkout Details</h2>
+            <p class="text-xs text-slate-400 mb-6">Enter details to dispatch your order notification via RabbitMQ.</p>
+
+            <form id="checkout-form" onsubmit="submitCheckout(event)">
+                <div class="mb-4">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">Full
+                        Name</label>
+                    <input type="text" id="checkout-name" required
+                        class="w-full bg-slate-950 border border-slate-800 text-slate-200 p-3 rounded-xl text-sm focus:outline-none focus:border-emerald-500 transition" />
+                </div>
+                <div class="mb-6">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">Email
+                        Address</label>
+                    <input type="email" id="checkout-email" required
+                        class="w-full bg-slate-950 border border-slate-800 text-slate-200 p-3 rounded-xl text-sm focus:outline-none focus:border-emerald-500 transition" />
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" onclick="toggleCheckoutModal()"
+                        class="w-1/2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 rounded-xl text-sm transition">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                        class="w-1/2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl text-sm transition shadow-lg shadow-emerald-500/20">
+                        Confirm Order
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reviews Modal -->
+    <div id="reviews-modal"
+        class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden justify-center items-center z-50 p-4">
+        <div
+            class="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-white" id="review-cake-title">Reviews</h2>
+                <button onclick="toggleReviewsModal()"
+                    class="text-slate-400 hover:text-white font-bold text-xl">&times;</button>
+            </div>
+
+            <div id="reviews-list" class="space-y-3 mb-4 overflow-y-auto flex-grow border-b border-slate-800/80 pr-1">
+                <!-- Reviews injected here -->
+            </div>
+
+            <form id="review-form" onsubmit="submitReview(event)" class="space-y-3 pt-2">
+                <input type="hidden" id="review-cake-id" />
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="text" id="review-name" placeholder="Your Name" required
+                        class="bg-slate-950 border border-slate-800 text-slate-200 p-2.5 rounded-xl text-xs focus:outline-none focus:border-amber-500" />
+                    <select id="review-rating" required
+                        class="bg-slate-950 border border-slate-800 text-slate-200 p-2.5 rounded-xl text-xs focus:outline-none focus:border-amber-500">
+                        <option value="5">5 ⭐ Excellent</option>
+                        <option value="4">4 ⭐ Good</option>
+                        <option value="3">3 ⭐ Average</option>
+                        <option value="2">2 ⭐ Poor</option>
+                        <option value="1">1 ⭐ Terrible</option>
+                    </select>
+                </div>
+                <textarea id="review-text" placeholder="Write your review here..."
+                    class="w-full bg-slate-950 border border-slate-800 text-slate-200 p-2.5 rounded-xl text-xs focus:outline-none focus:border-amber-500"
+                    rows="2"></textarea>
+                <button type="submit"
+                    class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-xl text-xs transition shadow-md shadow-amber-500/20">
+                    Submit Review
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast-notification"
+        class="fixed bottom-6 right-6 bg-slate-900 border border-emerald-500/40 text-slate-100 px-5 py-4 rounded-2xl shadow-2xl transform transition-all duration-300 translate-y-32 opacity-0 z-[100] flex items-center space-x-3 backdrop-blur-xl">
+        <div class="bg-emerald-500/20 text-emerald-400 p-2 rounded-xl">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+        </div>
+        <div>
+            <h4 class="font-bold text-sm text-white">Order Placed Successfully!</h4>
+            <p id="toast-message" class="text-xs text-slate-400 mt-0.5"></p>
+        </div>
+        <button onclick="closeToast()" class="text-slate-500 hover:text-white font-bold ml-2 text-lg">&times;</button>
+    </div>
+
+    <div id="sse-toast-notification"
+        class="fixed bottom-24 right-6 bg-slate-900 border border-indigo-500/40 text-slate-100 px-5 py-4 rounded-2xl shadow-2xl transform transition-all duration-300 translate-x-[120%] opacity-0 z-[100] flex items-center space-x-3 backdrop-blur-xl">
+        <div class="bg-indigo-500/20 text-indigo-400 p-2 rounded-xl">
+            <span class="text-lg">🐇</span>
+        </div>
+        <div>
+            <h4 id="sse-toast-title" class="font-bold text-sm text-white">Event Received!</h4>
+            <p id="sse-toast-message" class="text-xs text-slate-400 mt-0.5"></p>
+        </div>
+        <button onclick="closeSseToast()" class="text-slate-500 hover:text-white font-bold ml-2 text-lg">&times;</button>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:30000/api";
+        const USER_ID = "test_user_123";
+
+        function setCategoryPill(category, pillElement) {
+            document.querySelectorAll('.category-pill').forEach(el => {
+                el.classList.remove('bg-rose-500', 'text-white', 'shadow-sm');
+                el.classList.add('bg-slate-800', 'text-slate-300', 'hover:bg-slate-700', 'border', 'border-slate-700/60');
+            });
+
+            pillElement.classList.remove('bg-slate-800', 'text-slate-300', 'hover:bg-slate-700', 'border', 'border-slate-700/60');
+            pillElement.classList.add('bg-rose-500', 'text-white', 'shadow-sm');
+
+            document.getElementById('filter-category').value = category;
+            applyFilters();
+        }
+
+        function resetFiltersUI() {
+            document.getElementById("filter-name").value = "";
+            document.getElementById("filter-category").value = "";
+            document.getElementById("filter-min").value = "";
+            document.getElementById("filter-max").value = "";
+
+            const firstPill = document.querySelector('.category-pill');
+            if (firstPill) setCategoryPill('', firstPill);
+            fetchCatalog();
+        }
+
+        async function fetchCatalog(queryString = "") {
+            try {
+                const response = await fetch(`${API_BASE}/cakes${queryString}`);
+                const cakes = await response.json();
+
+                const grid = document.getElementById("catalog-grid");
+
+                if (!cakes || cakes.length === 0) {
+                    grid.innerHTML = `
+                        <div class="col-span-full text-center py-16 bg-slate-900/30 border border-slate-800/60 rounded-3xl">
+                            <p class="text-slate-500 font-medium text-sm">No cakes found matching your filter options.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const cakesWithRatings = await Promise.all(cakes.map(async (cake) => {
+                    try {
+                        const ratingRes = await fetch(`${API_BASE}/rating/${cake._id}`);
+                        const ratingData = await ratingRes.json();
+                        return {
+                            ...cake,
+                            averageRating: ratingData.averageRating || 0,
+                            totalRating: ratingData.totalRating || 0
+                        };
+                    } catch (e) {
+                        return { ...cake, averageRating: 0, totalRating: 0 };
+                    }
+                }));
+
+                grid.innerHTML = cakesWithRatings
+                    .map(
+                        (cake) => `
+            <div class="group bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-rose-950/10">
+                <div class="relative overflow-hidden aspect-[16/10]">
+                    <img src="${cake.imageReference}" alt="${cake.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
+                    <div class="absolute top-3 right-3 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 px-2.5 py-1 rounded-full text-xs font-semibold text-amber-400 flex items-center shadow-md">
+                        ⭐ ${cake.averageRating} <span class="text-slate-400 text-[10px] ml-1">(${cake.totalRating})</span>
+                    </div>
+                    <span class="absolute bottom-3 left-3 bg-rose-500/90 text-white backdrop-blur-md text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        ${cake.category}
+                    </span>
+                </div>
+
+                <div class="p-5 flex-grow flex flex-col justify-between space-y-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-white group-hover:text-rose-400 transition-colors">${cake.name}</h3>
+                        <p class="text-slate-400 text-xs mt-2 line-clamp-2 leading-relaxed">${cake.description}</p>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] text-slate-500 block uppercase font-bold tracking-wider">Price</span>
+                            <span class="text-lg font-black text-emerald-400">₹${cake.price}</span>
+                        </div>
+
+                        <div class="flex items-center space-x-2">
+                            <button onclick="openReviewsModal('${cake._id}', '${cake.name.replace(/'/g, "\\'")}')" 
+                                    class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl text-xs font-semibold transition border border-slate-700/60">
+                                Reviews
+                            </button>
+                            <button onclick="addToBasket(event, '${cake._id}', '${cake.name.replace(/'/g, "\\'")}', ${cake.price})" 
+                                    class="bg-rose-600 hover:bg-rose-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition shadow-md shadow-rose-600/20 flex items-center space-x-1">
+                                <span>+ Add</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `
+                    )
+                    .join("");
+            } catch (error) {
+                console.error("Error fetching catalog:", error);
+            }
+        }
+
+        function applyFilters() {
+            const name = document.getElementById("filter-name").value;
+            const category = document.getElementById("filter-category").value;
+            const minPrice = document.getElementById("filter-min").value;
+            const maxPrice = document.getElementById("filter-max").value;
+
+            const params = new URLSearchParams();
+            if (name) params.append("name", name);
+            if (category) params.append("category", category);
+            if (minPrice) params.append("minPrice", minPrice);
+            if (maxPrice) params.append("maxPrice", maxPrice);
+
+            const queryString = params.toString() ? `?${params.toString()}` : "";
+            fetchCatalog(queryString);
+        }
+
+        function resetFilters() {
+            resetFiltersUI();
+        }
+
+        async function addToBasket(event, cakeId, cakeName, price) {
+            const btn = event.currentTarget || event.target;
+            
+            try {
+                await fetch(`${API_BASE}/orders/basket/${USER_ID}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ cakeId, cakeName, price, quantity: 1 }),
+                });
+                updateBasketUI();
+
+                const originalContent = btn.innerHTML;
+                btn.innerHTML = `✓ Added`;
+                btn.classList.replace("bg-rose-600", "bg-emerald-500");
+
+                setTimeout(() => {
+                    btn.innerHTML = originalContent;
+                    btn.classList.replace("bg-emerald-500", "bg-rose-600");
+                }, 1000);
+            } catch (error) {
+                console.error("Error adding to basket:", error);
+            }
+        }
+        async function updateBasketUI() {
+            try {
+                const response = await fetch(`${API_BASE}/orders/basket/${USER_ID}`);
+                const data = await response.json();
+
+                document.getElementById("basket-count").innerText = data.basket.length;
+                document.getElementById("basket-total").innerText = data.totalAmount.toFixed(2);
+
+                const basketContainer = document.getElementById("basket-items");
+                if (data.basket.length === 0) {
+                    basketContainer.innerHTML = '<p class="text-slate-500 text-xs text-center py-8">Your basket is empty.</p>';
+                    return;
+                }
+
+                basketContainer.innerHTML = data.basket
+                    .map(
+                        (item) => `
+                    <div class="flex justify-between items-center bg-slate-950/60 p-3 rounded-xl border border-slate-800 mb-3 group">
+                        <div class="flex-grow">
+                            <p class="font-semibold text-slate-200 text-xs">${item.cakeName}</p>
+                            
+                            <!-- Quantity Controls -->
+                            <div class="flex items-center gap-3 mt-2">
+                                <div class="flex items-center bg-slate-800 rounded-lg overflow-hidden border border-slate-700/60">
+                                    <button onclick="updateQuantity('${item.cakeId}', '${item.cakeName.replace(/'/g, "\\'")}', ${item.price}, ${item.quantity}, -1)" 
+                                        class="px-2.5 py-1 text-slate-400 hover:text-white hover:bg-slate-700 transition font-bold">-</button>
+                                    <span class="text-[11px] font-bold text-slate-200 px-2 min-w-[24px] text-center">${item.quantity}</span>
+                                    <button onclick="updateQuantity('${item.cakeId}', '${item.cakeName.replace(/'/g, "\\'")}', ${item.price}, ${item.quantity}, 1)" 
+                                        class="px-2.5 py-1 text-slate-400 hover:text-white hover:bg-slate-700 transition font-bold">+</button>
+                                </div>
+                                <p class="text-[11px] text-slate-400">× ₹${item.price}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex flex-col items-end gap-2 ml-4">
+                            <!-- Trash Button -->
+                            <button onclick="removeFromBasket('${item.cakeId}')" 
+                                class="text-slate-600 hover:text-rose-500 transition-colors p-1" title="Remove from basket">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                            <!-- Line Total -->
+                            <p class="font-bold text-emerald-400 text-sm">₹${(item.quantity * item.price).toFixed(2)}</p>
+                        </div>
+                    </div>
+                `
+                    ).join("");
+            } catch (error) {
+                console.error("Error fetching basket:", error);
+            }
+        }
+
+        async function updateQuantity(cakeId, cakeName, price, currentQuantity, change) {
+            const newQuantity = currentQuantity + change;
+
+            // If dropping below 1, remove the item completely
+            if (newQuantity <= 0) {
+                await removeFromBasket(cakeId);
+                return;
+            }
+
+            try {
+                await fetch(`${API_BASE}/orders/basket/${USER_ID}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ cakeId, cakeName, price, quantity: change }), // Backend adds this to current total
+                });
+                await updateBasketUI();
+            } catch (error) {
+                console.error("Error updating quantity:", error);
+            }
+        }
+
+        async function removeFromBasket(cakeId) {
+            try {
+                await fetch(`${API_BASE}/orders/basket/${USER_ID}/${cakeId}`, {
+                    method: "DELETE"
+                });
+                await updateBasketUI();
+            } catch (error) {
+                console.error("Error removing item:", error);
+            }
+        }
+        function checkout() {
+            toggleBasket();
+            toggleCheckoutModal();
+        }
+
+        function toggleCheckoutModal() {
+            const modal = document.getElementById('checkout-modal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+            document.getElementById('checkout-form').reset();
+        }
+
+        async function submitCheckout(event) {
+            event.preventDefault();
+            const name = document.getElementById('checkout-name').value;
+            const email = document.getElementById('checkout-email').value;
+
+            listenForRabbitMQEvent(email);
+            try {
+                const response = await fetch(`${API_BASE}/orders/checkout/${USER_ID}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customerName: name, customerEmail: email })
+                });
+
+                if (response.ok) {
+                    toggleCheckoutModal();
+                    updateBasketUI();
+                    showToast(email);
+                } else {
+                    const err = await response.json();
+                    alert(`Checkout failed: ${err.message}`);
+                }
+            } catch (error) {
+                console.error('Error during checkout:', error);
+            }
+        }
+
+        function toggleReviewsModal() {
+            const modal = document.getElementById('reviews-modal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+            document.getElementById('review-form').reset();
+        }
+
+        async function openReviewsModal(cakeId, cakeName) {
+            document.getElementById('review-cake-title').innerText = cakeName;
+            document.getElementById('review-cake-id').value = cakeId;
+            const list = document.getElementById('reviews-list');
+            list.innerHTML = '<p class="text-center text-slate-500 py-6 text-xs">Loading reviews...</p>';
+
+            toggleReviewsModal();
+
+            try {
+                const response = await fetch(`${API_BASE}/rating/${cakeId}`);
+                const data = await response.json();
+
+                if (data.totalRating === 0 || !data.review || data.review.length === 0) {
+                    list.innerHTML = '<p class="text-center text-slate-500 py-6 text-xs">No reviews yet. Be the first to leave one!</p>';
+                    return;
+                }
+
+                list.innerHTML = data.review.map(r => `
+                    <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-xs text-slate-300">${r.userName}</span>
+                            <span class="text-amber-400 text-xs">${'★'.repeat(r.rating)}<span class="text-slate-700">${'★'.repeat(5 - r.rating)}</span></span>
+                        </div>
+                        <p class="text-slate-400 text-xs leading-relaxed">${r.review || ''}</p>
+                    </div>
+                `).join('');
+            } catch (error) {
+                list.innerHTML = '<p class="text-rose-400 py-6 text-center text-xs">Failed to load reviews.</p>';
+            }
+        }
+
+        async function submitReview(event) {
+            event.preventDefault();
+            const cakeId = document.getElementById('review-cake-id').value;
+            const userName = document.getElementById('review-name').value;
+            const rating = document.getElementById('review-rating').value;
+            const review = document.getElementById('review-text').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/rating`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cakeId,
+                        userId: USER_ID,
+                        userName,
+                        rating: Number(rating),
+                        review
+                    })
+                });
+
+                if (response.ok) {
+                    const btn = event.target.querySelector('button[type="submit"]');
+                    btn.innerText = 'Submitted!';
+                    btn.classList.replace('bg-amber-500', 'bg-emerald-500');
+
+                    setTimeout(() => {
+                        toggleReviewsModal();
+                        fetchCatalog();
+                        btn.innerText = 'Submit Review';
+                        btn.classList.replace('bg-emerald-500', 'bg-amber-500');
+                    }, 1000);
+                }
+            } catch (error) {
+                console.error('Error submitting review:', error);
+            }
+        }
+
+        function toggleBasket() {
+            const modal = document.getElementById("basket-modal");
+            modal.classList.toggle("hidden");
+            modal.classList.toggle("flex");
+            if (!modal.classList.contains("hidden")) {
+                updateBasketUI();
+            }
+        }
+
+        function showToast(email) {
+            const toast = document.getElementById('toast-notification');
+            const message = document.getElementById('toast-message');
+
+            message.innerText = `Confirmation sent to ${email}`;
+            toast.classList.remove('translate-y-32', 'opacity-0');
+
+            setTimeout(closeToast, 5000);
+        }
+
+        function closeToast() {
+            const toast = document.getElementById('toast-notification');
+            toast.classList.add('translate-y-32', 'opacity-0');
+        }
+
+        function listenForRabbitMQEvent(email) {
+            const eventSource = new EventSource(`${API_BASE}/notification/stream?email=${encodeURIComponent(email)}`);
+            
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                showSseToast(data.title, data.message);
+                
+                eventSource.close();
+            };
+
+            eventSource.onerror = () => {
+                eventSource.close();
+            };
+        }
+
+        function showSseToast(title, message) {
+            const toast = document.getElementById('sse-toast-notification');
+            document.getElementById('sse-toast-title').innerText = title;
+            document.getElementById('sse-toast-message').innerText = message;
+
+            toast.classList.remove('translate-x-[120%]', 'opacity-0');
+            setTimeout(closeSseToast, 7000);
+        }
+
+        function closeSseToast() {
+            const toast = document.getElementById('sse-toast-notification');
+            toast.classList.add('translate-x-[120%]', 'opacity-0');
+        }
+
+        fetchCatalog();
+        updateBasketUI();
+    </script>
+</body>
+
+</html>
+</file>
+
+<file path="notification-service/server.js">
+require("dotenv").config();
+const express = require("express");
+const mongoose = require("mongoose");
+const amqp = require("amqplib");
+const nodemailer = require("nodemailer");
+const cors = require("cors");
+const logger = require("./config/logger");
+const Notification = require("./models/Notification");
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const MONGO_URI =
+  process.env.MONGO_URI ||
+  "mongodb://admin:password@localhost:27017/notification_db?authSource=admin";
+mongoose
+  .connect(MONGO_URI)
+  .then(() => logger.info("MongoDb connection Successful"))
+  .catch((error) => {
+    logger.error("Error in connecting to MongoDB", { error: error.message });
+    process.exit(1);
+  });
+
+let transporter = null;
+
+if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+  transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+
+  transporter.verify((error, success) => {
+    if (error) {
+      logger.error("Gmail SMTP connection failed", { error: error.message });
+    } else {
+      logger.info("Live Gmail Transporter is ready to send messages");
+    }
+  });
+} else {
+  logger.warn(
+    "No Gmail credentials found in .env. Falling back to MOCK email mode.",
+  );
+}
+
+async function startRabbitMQConsumer(retries = 5) {
+  const RABBITMQ_URL =
+    process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672";
+  while(retries){
+    try {
+    const connection = await amqp.connect(RABBITMQ_URL);
+    const channel = await connection.createChannel();
+    const queue = "order_notifications";
+
+    await channel.assertQueue(queue, { durable: true });
+    logger.info("RabbitMQ connected, waiting for order events...");
+
+    channel.consume(queue, async (msg) => {
+      if (msg !== null) {
+        const eventData = JSON.parse(msg.content.toString());
+        logger.info("Received Order completion event", {
+          orderId: eventData.orderId,
+        });
+
+        try {
+          if (transporter) {
+            await transporter.sendMail({
+              from: `"Cake Delight" <${process.env.GMAIL_USER}>`,
+              to: eventData.customerEmail,
+              subject: `Your Order Confirmation #${eventData.orderId}`,
+              text: `Order #${eventData.orderId} confirmed. Total: ₹${eventData.totalAmount}`,
+              html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+                    <h2 style="color: #ff6b6b;">Cake Delight</h2>
+                    <h3>Thank you for your order!</h3>
+                    <p>Your order with orderID<b>#${eventData.orderId}</b> has been confirmed.</p>
+                    <p><b>Total Amount Paid:</b> ₹${eventData.totalAmount}</p>
+                </div>
+              `,
+            });
+            logger.info(`Email successfully sent to ${eventData.customerEmail}`);
+          } else {
+            logger.info(`[MOCK EMAIL OUTBOUND] To: ${eventData.customerEmail} | Body: Order #${eventData.orderId} confirmed. Total: ₹${eventData.totalAmount}`);
+          }
+
+          const notification = new Notification({
+            orderId: eventData.orderId.toString(),
+            customerEmail: eventData.customerEmail,
+            status: "SENT",
+            message: `Order #${eventData.orderId} confirmed. Total: ₹${eventData.totalAmount}`,
+          });
+          await notification.save();
+
+          const targetEmail = eventData.customerEmail ? eventData.customerEmail.toLowerCase().trim() : '';
+
+          if(sseClients.has(targetEmail)){
+            const clientRes = sseClients.get(targetEmail);
+            const payload = JSON.stringify({
+              title: "RabbitMQ Event Received",
+              message: `Order #${eventData.orderId} notification has been processed.`
+            });
+            clientRes.write(`data: ${payload}\n\n`);
+          }
+
+          channel.ack(msg);
+
+        } catch (error) {
+          logger.error("Error processing notification", { error: error.message });
+        }
+      }
+    });
+    break;
+  } catch (error) {
+    logger.error(`RabbitMQ Connection Failed, retrying... (${retries} left)`);
+    retries -= 1;
+    await new Promise((res)=> setTimeout(res, 5000));
+
+    if(retries === 0){
+      logger.info('RabbitMQ Connection Completely Failed, exiting process...');
+      process.exit(1);
+    }
+  }
+  }
+  
+}
+
+//API for health check
+app.get('/health',(req,res)=>{
+  const isDbConnected = mongoose.connection.readyState === 1;
+  if(isDbConnected){
+    return res.status(200).json({status: 'UP', database: 'CONNECTED'});
+  }
+  return res.status(503).json({status: 'DOWN', database: 'DISCONNECTED'});
+});
+
+//API for SSE to stream notifications to the frontend
+const sseClients = new Map();
+
+app.get('/api/notification/stream',(req,res)=>{
+  const email = req.query.email;
+  if(!email) res.status(400).json({message: 'Email is Required'});
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const normalizedEmail = email.toLowerCase().trim();
+  sseClients.set(normalizedEmail, res);
+
+  req.on('close', ()=>{
+    sseClients.delete(normalizedEmail);
+  });
+});
+
+//API to retiriev notification
+app.get("/api/notification/:orderId", async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const notifications = await Notification.find({ orderId });
+    res.status(200).json(notifications);
+  } catch (error) {
+    logger.error("Error in fetching notification", { error: error.message });
+    res.status(500).json({ message: "Internal Server error" });
+  }
+});
+
+
+
+const PORT = process.env.PORT || 3004;
+app.listen(PORT, async () => {
+  logger.info(`Notification Service is running on PORT ${PORT}`);
+  await startRabbitMQConsumer();
 });
 </file>
 
