@@ -94,15 +94,86 @@ rating-service/
   package.json
   server.js
 .gitignore
+API_DOCUMENTATION.txt
+Architecture_Docs.md
+Architecture_Docs.txt
 deploy.ps1
 deploy.sh
-Documentation.md
-Documentation.txt
+END-to-END_Demo.txt
 README.md
+SETUP_GUIDE.txt
 </directory_structure>
 
 <files>
 This section contains the contents of the repository's files.
+
+<file path="END-to-END_Demo.txt">
+================================================================================
+CAKE DELIGHT - END-TO-END USER FLOW DIAGRAM
+================================================================================
+
+[ USER: Opens http://localhost:30000 ]
+        |
+        v
+[ UI: Main Dashboard / Catalog ] <--(GET /api/cakes)-- [ Catalog Service ]
+        |
+        +--> (Action: Click 'Chocolate' category, Type in Search, Adjust Price)
+        |
+        v
+[ ACTION: Click "+ Add" on a Cake ] --(POST /api/orders/basket/:id)-- [ Order Service ]
+        |
+        v
+[ MODAL: Open Basket ] <--(GET /api/orders/basket/:id)-- Displays UI with MySQL data
+        |
+        +--> (Action: Adjust quantity with +/- buttons)
+        |
+        v
+[ ACTION: Click "Checkout Now" ]
+        |
+        v
+[ MODAL: Checkout Details ]
+        |
+        +--> (Action: Enter Name & Email, Click "Confirm Order")
+        |
+        +--(POST /api/orders/checkout)---> [ Order Service ]
+                                                |
+                                          (Publishes)
+                                                v
+                                        [ RabbitMQ Broker ]
+                                                |
+                                           (Consumes)
+                                                v
+                                    [ Notification Service ]
+                                                |
+[ TOAST: SSE "Event Received!" ] <--(SSE Stream /api/notification)--+
+        |
+        v
+[ ACTION: Click "Reviews" on purchased Cake ]
+        |
+        v
+[ MODAL: Reviews List ] <--(GET /api/rating)-- [ Rating Service ]
+        |
+        +--> (Action: Select 5 Stars, Add Comment, Submit)
+        |
+        +--(POST /api/rating)--> [ Rating Service ]
+        |
+        v
+[ UI: Catalog Card Instantly Updates Average Rating ]
+
+
+================================================================================
+CAKE DELIGHT - GOOGLE DRIVE LINK FOR THE VIDEO
+================================================================================
+
+LINK- https://drive.google.com/file/d/1nyXEjZe5grnV8LYY5nKHGRhLGnh3RoIc/view?usp=sharing
+
+
+================================================================================
+CAKE DELIGHT - GITHUB REPO LINK
+================================================================================
+
+LINK- https://github.com/Raunit2025/capstone_CNM.git
+</file>
 
 <file path="api-gateway/config/logger.js">
 const winston = require("winston");
@@ -649,41 +720,305 @@ CMD [ "node", "server.js" ]
 Thumbs.db
 </file>
 
-<file path="deploy.ps1">
-Write-Host "Starting Cake Delight Deployment..." -ForegroundColor Cyan
+<file path="API_DOCUMENTATION.txt">
+================================================================================
+CAKE DELIGHT - MICROSERVICES API TESTING DOCUMENTATION
+================================================================================
 
-# 1. Clean up old ConfigMap if it exists so we can recreate it cleanly
-kubectl delete configmap mongodb-seed-config --ignore-not-found
+Base URL: http://localhost:30000
+Prerequisite: Ensure port forwarding is active:
+  kubectl port-forward service/api-gateway-service 30000:3000
 
-# 2. Create the seed ConfigMap
-kubectl create configmap mongodb-seed-config --from-file=catalog-service/seed.js
+Common Request Header for JSON Payloads:
+  Content-Type: application/json
 
-# 3. Apply all K8s manifests recursively (-R handles all subfolders automatically)
-kubectl apply -R -f k8s/
 
-Write-Host "Waiting for pods to initialize... (Press Ctrl+C to exit watch mode when READY)" -ForegroundColor Yellow
-kubectl get pods -w
+================================================================================
+1. API GATEWAY SYSTEM HEALTH
+================================================================================
+
+[GET] /health
+Description: Verifies the operational status of the API Gateway proxy.
+
+Response (200 OK):
+{
+  "status": "UP",
+  "service": "api-gateway",
+  "timestamp": "2026-08-12T16:30:00.000Z"
+}
+
+
+================================================================================
+2. CAKE CATALOG MICROSERVICE
+================================================================================
+
+[GET] /api/cakes
+Description: Retrieves all available cakes. Supports query parameters for filtering.
+
+Query Parameters (Optional):
+  - name       (string)  : Search by partial name (e.g., ?name=truffle)
+  - category   (string)  : Filter by category (Chocolate, Fruit, Classic, Specialty, Vegan)
+  - minPrice   (number)  : Minimum price threshold
+  - maxPrice   (number)  : Maximum price threshold
+
+Example URL:
+  http://localhost:30000/api/cakes?category=Chocolate&minPrice=100&maxPrice=300
+
+Response (200 OK):
+[
+  {
+    "_id": "660a123456789abcdef01234",
+    "name": "Classic Chocolate Truffle",
+    "description": "A rich, dense chocolate cake covered in smooth chocolate ganache.",
+    "category": "Chocolate",
+    "price": 135.00,
+    "availability": true,
+    "imageReference": "https://images.unsplash.com/photo-1578985545062-69928b1d9587",
+    "createdAt": "2026-08-12T10:00:00.000Z",
+    "updatedAt": "2026-08-12T10:00:00.000Z"
+  }
+]
+
+
+[GET] /api/cakes/:id
+Description: Fetch details of a single cake by its MongoDB ID.
+
+Example URL:
+  http://localhost:30000/api/cakes/660a123456789abcdef01234
+
+Response (200 OK):
+{
+  "_id": "660a123456789abcdef01234",
+  "name": "Classic Chocolate Truffle",
+  "description": "A rich, dense chocolate cake covered in smooth chocolate ganache.",
+  "category": "Chocolate",
+  "price": 135.00,
+  "availability": true,
+  "imageReference": "https://images.unsplash.com/photo-1578985545062-69928b1d9587"
+}
+
+
+[POST] /api/cakes
+Description: Adds a new product to the cake catalog.
+
+Request Body (JSON):
+{
+  "name": "Matcha Green Tea Sponge",
+  "description": "Japanese ceremonial matcha layered sponge cake.",
+  "category": "Specialty",
+  "price": 280.00,
+  "availability": true,
+  "imageReference": "https://images.unsplash.com/photo-1535141192574-5d4897c13136"
+}
+
+Response (201 Created):
+{
+  "_id": "660b987654321fedcba98765",
+  "name": "Matcha Green Tea Sponge",
+  "description": "Japanese ceremonial matcha layered sponge cake.",
+  "category": "Specialty",
+  "price": 280.00,
+  "availability": true,
+  "imageReference": "https://images.unsplash.com/photo-1535141192574-5d4897c13136",
+  "createdAt": "2026-08-12T10:15:00.000Z",
+  "updatedAt": "2026-08-12T10:15:00.000Z"
+}
+
+
+================================================================================
+3. ORDER & BASKET MICROSERVICE
+================================================================================
+
+[GET] /api/orders/basket/:userId
+Description: Retrieves current active shopping cart items and calculated grand total for a user.
+
+Example URL:
+  http://localhost:30000/api/orders/basket/test_user_123
+
+Response (200 OK):
+{
+  "basket": [
+    {
+      "cakeId": "660a123456789abcdef01234",
+      "cakeName": "Classic Chocolate Truffle",
+      "price": "135.00",
+      "quantity": 2
+    }
+  ],
+  "totalAmount": 270
+}
+
+
+[POST] /api/orders/basket/:userId
+Description: Adds an item to the user basket or updates the quantity if the item already exists.
+
+Request Body (JSON):
+{
+  "cakeId": "660a123456789abcdef01234",
+  "cakeName": "Classic Chocolate Truffle",
+  "price": 135.00,
+  "quantity": 1
+}
+
+Response (200 OK):
+{
+  "message": "Item Added",
+  "basket": [
+    {
+      "cakeId": "660a123456789abcdef01234",
+      "cakeName": "Classic Chocolate Truffle",
+      "price": "135.00",
+      "quantity": 1
+    }
+  ]
+}
+
+
+[DELETE] /api/orders/basket/:userId/:cakeId
+Description: Removes a specific item completely from the user basket.
+
+Example URL:
+  http://localhost:30000/api/orders/basket/test_user_123/660a123456789abcdef01234
+
+Response (200 OK):
+{
+  "message": "Item Removed",
+  "basket": []
+}
+
+
+[POST] /api/orders/checkout/:userId
+Description: Executes transaction checkout, creates an order entry in MySQL, empties basket, and emits an 'order_completed' event to RabbitMQ.
+
+Request Body (JSON):
+{
+  "customerName": "Raunit Raj",
+  "customerEmail": "raunit@example.com"
+}
+
+Response (201 Created):
+{
+  "message": "order created successfully",
+  "orderId": 1
+}
+
+
+[PATCH] /api/orders/:orderId/status
+Description: Updates the administrative processing status of an existing order.
+
+Allowed Statuses: "PENDING", "COMPLETED", "CANCELLED"
+
+Request Body (JSON):
+{
+  "status": "COMPLETED"
+}
+
+Response (200 OK):
+{
+  "message": "Order status updated successfully",
+  "orderId": "1",
+  "status": "COMPLETED"
+}
+
+
+================================================================================
+4. RATING MICROSERVICE
+================================================================================
+
+[POST] /api/rating
+Description: Submits a rating score and review comment for a product.
+
+Request Body (JSON):
+{
+  "cakeId": "660a123456789abcdef01234",
+  "userId": "test_user_123",
+  "userName": "Raunit Raj",
+  "rating": 5,
+  "review": "Extremely delicious and delivered fresh!"
+}
+
+Response (201 Created):
+{
+  "message": "Rating Submitted successfully",
+  "data": {
+    "_id": "660c11112222333344445555",
+    "cakeId": "660a123456789abcdef01234",
+    "userId": "test_user_123",
+    "userName": "Raunit Raj",
+    "rating": 5,
+    "review": "Extremely delicious and delivered fresh!",
+    "createdAt": "2026-08-12T10:30:00.000Z"
+  }
+}
+
+
+[GET] /api/rating/:cakeId
+Description: Fetches all customer reviews and computes the calculated average rating for a given cake.
+
+Example URL:
+  http://localhost:30000/api/rating/660a123456789abcdef01234
+
+Response (200 OK):
+{
+  "cakeId": "660a123456789abcdef01234",
+  "averageRating": 5,
+  "totalRating": 1,
+  "review": [
+    {
+      "_id": "660c11112222333344445555",
+      "cakeId": "660a123456789abcdef01234",
+      "userId": "test_user_123",
+      "userName": "Raunit Raj",
+      "rating": 5,
+      "review": "Extremely delicious and delivered fresh!",
+      "createdAt": "2026-08-12T10:30:00.000Z"
+    }
+  ]
+}
+
+
+================================================================================
+5. NOTIFICATION MICROSERVICE
+================================================================================
+
+[GET] /api/notification/stream
+Description: Establishes a Server-Sent Events (SSE) connection to push real-time order confirmation alerts to web clients.
+
+Query Parameter (Required):
+  - email (string) : Email to subscribe to events for
+
+Example URL:
+  http://localhost:30000/api/notification/stream?email=raunit@example.com
+
+Response Stream Headers (200 OK):
+  Content-Type: text/event-stream
+  Cache-Control: no-cache
+  Connection: keep-alive
+
+Sample Event Data Payload emitted on checkout:
+  data: {"title":"RabbitMQ Event Received","message":"Order #1 notification has been processed."}
+
+
+[GET] /api/notification/:orderId
+Description: Retrieves logged notification audit records for a specific order.
+
+Example URL:
+  http://localhost:30000/api/notification/1
+
+Response (200 OK):
+[
+  {
+    "_id": "660d99998888777766665555",
+    "orderId": "1",
+    "customerEmail": "raunit@example.com",
+    "status": "SENT",
+    "message": "Order #1 confirmed. Total: ₹270",
+    "createdAt": "2026-08-12T10:35:00.000Z"
+  }
+]
 </file>
 
-<file path="deploy.sh">
-#!/bin/bash
-
-echo "Starting Cake Delight Deployment..."
-
-# 1. Clean up old ConfigMap if it exists
-kubectl delete configmap mongodb-seed-config --ignore-not-found
-
-# 2. Create the seed ConfigMap
-kubectl create configmap mongodb-seed-config --from-file=catalog-service/seed.js
-
-# 3. Apply all K8s manifests recursively
-kubectl apply -R -f k8s/
-
-echo "Waiting for pods to initialize... (Press Ctrl+C to exit watch mode when READY)"
-kubectl get pods -w
-</file>
-
-<file path="Documentation.md">
+<file path="Architecture_Docs.md">
 ## Architecture
 
 ```text
@@ -785,7 +1120,7 @@ kubectl get pods -w
 * Minikube (or local Kubernetes cluster) running.
 * `kubectl` configured to target your local cluster.
 
-### Step 1: Start Minikube
+### Step 1: Start Minikube if using minikube (if using kubernetes, then make sure it's running and can skip this)
 ```bash
 minikube start
 ```
@@ -840,7 +1175,7 @@ kubectl describe pod -l app=catalog-service
 ```
 </file>
 
-<file path="Documentation.txt">
+<file path="Architecture_Docs.txt">
 Architecture
 
                                  +-------------------+
@@ -941,7 +1276,7 @@ Prerequisites
 * Minikube (or local Kubernetes cluster) running.
 * kubectl configured to target your local cluster.
 
-Step 1: Start Minikube
+Step 1: Start Minikube if using minikube (if using kubernetes, then make sure it's running and can skip this)
 minikube start
 
 Step 2: Run Automated Deployment
@@ -957,7 +1292,7 @@ Step 3: Verify Cluster Status
 Check that all database, broker, gateway, and microservice pods are running:
 kubectl get pods
 
-Step 4: Expose API Gateway
+Step 4: Expose API Gateway (Do it in new PowerShell keep the previous one running)
 Expose port 3000 of the Gateway service to local port 30000:
 kubectl port-forward service/api-gateway-service 30000:3000
 
@@ -979,6 +1314,147 @@ Checking Health & Events
 Each microservice exposes a /health endpoint that verifies database and message broker connectivity. Kubernetes uses these endpoints for liveness and readiness probes. If a service becomes unresponsive, Kubernetes will automatically restart the pod. You can monitor these cluster events and check for probe failures using:
 kubectl get events --sort-by='.metadata.creationTimestamp'
 kubectl describe pod -l app=catalog-service
+</file>
+
+<file path="SETUP_GUIDE.txt">
+================================================================================
+CAKE DELIGHT - SETUP & STARTUP GUIDE
+Cloud-Native Microservices Engineering Capstone
+================================================================================
+
+This guide provides step-by-step instructions to deploy, run, test, and monitor 
+the Cake Delight microservices application locally using Kubernetes.
+
+================================================================================
+PREREQUISITES
+================================================================================
+Ensure the following tools are installed and running on your local machine:
+1. Docker (Docker Desktop running)
+2. Kubernetes Cluster (Either Docker Desktop's built-in K8s OR Minikube)
+3. kubectl (CLI tool configured to communicate with your cluster)
+
+
+================================================================================
+STEP 1: PREPARE YOUR CLUSTER
+================================================================================
+Ensure your Kubernetes cluster is running and your context is correctly set.
+
+If using Minikube:
+  minikube start
+  kubectl config use-context minikube
+
+If using Docker Desktop (Kubernetes enabled):
+  kubectl config use-context docker-desktop
+
+
+================================================================================
+STEP 2: RUN AUTOMATED DEPLOYMENT
+================================================================================
+We have provided automated scripts that will build the Docker images directly 
+into your cluster's registry and apply all necessary Kubernetes manifests.
+
+For Windows (PowerShell):
+  1. Open PowerShell as Administrator (if execution policies require it).
+  2. Run: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+  3. Run: .\deploy.ps1
+
+For Mac / Linux (Bash):
+  1. Make the script executable: chmod +x deploy.sh
+  2. Run: ./deploy.sh
+
+Wait for the script to finish. You can monitor the pod initialization by running:
+  kubectl get pods -w
+
+Wait until all pods show a status of "Running" and "1/1" (or "2/2") READY. 
+Press Ctrl+C to exit the watch mode.
+
+
+================================================================================
+STEP 3: MANDATORY PORT FORWARDING (CRUCIAL)
+================================================================================
+To ensure stable routing from your host machine to the API Gateway inside the 
+cluster, you MUST establish a port-forward. 
+
+Open a NEW terminal window, run the following command, and LEAVE IT OPEN:
+  
+  kubectl port-forward service/api-gateway-service 30000:3000
+  
+  (If this one shows error that service NOT Found then run this to directly use the deployment)
+
+  kubectl port-forward deployment/gateway-deployment 30000:3000
+
+* Note: Do not close this terminal while testing the application.
+
+
+================================================================================
+STEP 4: ACCESSING THE APPLICATION
+================================================================================
+With the pods running and the port-forward active, you can now use the app.
+
+1. The Frontend UI:
+   Simply open the `frontend/index.html` file directly in any modern web browser 
+   (e.g., double-click the file or use VS Code Live Server). 
+
+2. The Backend APIs:
+   Base URL: http://localhost:30000/api
+   Gateway Health Check: http://localhost:30000/health
+
+
+================================================================================
+TROUBLESHOOTING: MANUAL DATABASE SEEDING
+================================================================================
+The deployment script uses a ConfigMap to automatically seed the MongoDB catalog.
+However, if you open the frontend and see "No cakes found", the database volume 
+may have cached an empty state. 
+
+To manually force the seed script to run, execute this command in your terminal:
+
+  kubectl exec -it deployment/mongodb-deployment -- mongosh -u admin -p password --authenticationDatabase admin -f /docker-entrypoint-initdb.d/seed.js
+
+Once it outputs the inserted documents, refresh your frontend browser tab.
+
+
+================================================================================
+OBSERVABILITY: LOGGING & MONITORING
+================================================================================
+The application utilizes built-in Kubernetes features and Winston to track 
+system health and structured JSON logs without requiring external dashboards.
+
+1. Distributed Tracing (Correlation ID)
+Every incoming request passing through the API Gateway is assigned a unique 
+`x-correlation-id`. This ID is passed to all downstream microservices, allowing 
+you to trace a single request's lifecycle across multiple service logs.
+
+2. Viewing Live Service Logs
+You can view the live log stream for any specific microservice using its 
+Kubernetes label. Use the following commands:
+  - Gateway Logs:   kubectl logs -l app=api-gateway -f
+  - Order Logs:     kubectl logs -l app=order-service -f
+  - Catalog Logs:   kubectl logs -l app=catalog-service -f
+  - Rating Logs:    kubectl logs -l app=rating-service -f
+  - Notification:   kubectl logs -l app=notification-service -f
+
+3. Checking Health Probes & Cluster Events
+Each microservice exposes a `/health` endpoint that continuously verifies 
+database and message broker connectivity. Kubernetes uses these for liveness 
+and readiness probes. 
+
+To monitor cluster events (like pod restarts or probe failures):
+  kubectl get events --sort-by='.metadata.creationTimestamp'
+
+To inspect the health and status of a specific pod in detail:
+  kubectl describe pod -l app=catalog-service
+
+
+================================================================================
+CLEAN UP / TEARDOWN
+================================================================================
+To remove all Cake Delight resources from your cluster when finished, run:
+
+  kubectl delete -f k8s/ -R
+  kubectl delete configmap mongodb-seed-config
+
+================================================================================
 </file>
 
 <file path="api-gateway/server.js">
@@ -1376,6 +1852,68 @@ const ratingSchema = new mongoose.Schema({
 }, {timestamps: true});
 
 module.exports = mongoose.model('Rating', ratingSchema);
+</file>
+
+<file path="deploy.ps1">
+# deploy.ps1
+Write-Host "Starting Cake Delight Deployment..." -ForegroundColor Cyan
+
+# 1. Configure Docker environment for Minikube if active
+$currentContext = kubectl config current-context
+if ($currentContext -eq "minikube") {
+    Write-Host "Minikube context detected. Pointing Docker daemon to Minikube..." -ForegroundColor Yellow
+    minikube docker-env | Invoke-Expression
+}
+
+# 2. Build Docker images (Fixes ImagePullBackOff on fresh environments)
+Write-Host "Building Microservice Images..." -ForegroundColor Cyan
+docker build -t api-gateway:latest ./api-gateway
+docker build -t catalog-service:latest ./catalog-service
+docker build -t order-service:latest ./order-service
+docker build -t rating-service:latest ./rating-service
+docker build -t notification-service:latest ./notification-service
+
+# 3. Clean up and recreate ConfigMap
+kubectl delete configmap mongodb-seed-config --ignore-not-found
+kubectl create configmap mongodb-seed-config --from-file=catalog-service/seed.js
+
+# 4. Apply Kubernetes Manifests
+kubectl apply -R -f k8s/
+
+Write-Host "Waiting for pods to initialize..." -ForegroundColor Yellow
+kubectl get pods -w
+</file>
+
+<file path="deploy.sh">
+#!/bin/bash
+# deploy.sh
+
+echo "Starting Cake Delight Deployment..."
+
+# 1. Configure Docker environment for Minikube if active
+CURRENT_CONTEXT=$(kubectl config current-context)
+if [ "$CURRENT_CONTEXT" = "minikube" ]; then
+    echo "Minikube context detected. Pointing Docker daemon to Minikube..."
+    eval $(minikube docker-env)
+fi
+
+# 2. Build Docker images (Fixes ImagePullBackOff on fresh environments)
+echo "Building Microservice Images..."
+docker build -t api-gateway:latest ./api-gateway
+docker build -t catalog-service:latest ./catalog-service
+docker build -t order-service:latest ./order-service
+docker build -t rating-service:latest ./rating-service
+docker build -t notification-service:latest ./notification-service
+
+# 3. Clean up and recreate ConfigMap
+kubectl delete configmap mongodb-seed-config --ignore-not-found
+kubectl create configmap mongodb-seed-config --from-file=catalog-service/seed.js
+
+# 4. Apply Kubernetes Manifests
+kubectl apply -R -f k8s/
+
+echo "Waiting for pods to initialize..."
+kubectl get pods -w
 </file>
 
 <file path="README.md">
@@ -1982,7 +2520,6 @@ app.listen(PORT, () => {
                         class="category-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60 transition whitespace-nowrap">Vegan</button>
                 </div>
 
-                <!-- Hidden select element for JS compatibility -->
                 <select id="filter-category" class="hidden">
                     <option value="">All Categories</option>
                     <option value="Chocolate">Chocolate</option>
@@ -2022,7 +2559,6 @@ app.listen(PORT, () => {
 
         <!-- Catalog Grid -->
         <div id="catalog-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Cakes rendered via JS -->
         </div>
     </main>
 
@@ -2041,7 +2577,6 @@ app.listen(PORT, () => {
             </div>
 
             <div id="basket-items" class="space-y-3 max-h-72 overflow-y-auto mb-6 pr-1">
-                <!-- Items injected here -->
             </div>
 
             <div class="border-t border-slate-800 pt-4 flex justify-between items-center mb-6">
@@ -2159,7 +2694,8 @@ app.listen(PORT, () => {
             <h4 id="sse-toast-title" class="font-bold text-sm text-white">Event Received!</h4>
             <p id="sse-toast-message" class="text-xs text-slate-400 mt-0.5"></p>
         </div>
-        <button onclick="closeSseToast()" class="text-slate-500 hover:text-white font-bold ml-2 text-lg">&times;</button>
+        <button onclick="closeSseToast()"
+            class="text-slate-500 hover:text-white font-bold ml-2 text-lg">&times;</button>
     </div>
 
     <script>
@@ -2290,7 +2826,7 @@ app.listen(PORT, () => {
 
         async function addToBasket(event, cakeId, cakeName, price) {
             const btn = event.currentTarget || event.target;
-            
+
             try {
                 await fetch(`${API_BASE}/orders/basket/${USER_ID}`, {
                     method: "POST",
@@ -2367,7 +2903,6 @@ app.listen(PORT, () => {
         async function updateQuantity(cakeId, cakeName, price, currentQuantity, change) {
             const newQuantity = currentQuantity + change;
 
-            // If dropping below 1, remove the item completely
             if (newQuantity <= 0) {
                 await removeFromBasket(cakeId);
                 return;
@@ -2377,7 +2912,7 @@ app.listen(PORT, () => {
                 await fetch(`${API_BASE}/orders/basket/${USER_ID}`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ cakeId, cakeName, price, quantity: change }), // Backend adds this to current total
+                    body: JSON.stringify({ cakeId, cakeName, price, quantity: change }),
                 });
                 await updateBasketUI();
             } catch (error) {
@@ -2534,11 +3069,11 @@ app.listen(PORT, () => {
 
         function listenForRabbitMQEvent(email) {
             const eventSource = new EventSource(`${API_BASE}/notification/stream?email=${encodeURIComponent(email)}`);
-            
+
             eventSource.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 showSseToast(data.title, data.message);
-                
+
                 eventSource.close();
             };
 

@@ -1,0 +1,65 @@
+================================================================================
+CAKE DELIGHT - END-TO-END USER FLOW DIAGRAM
+================================================================================
+
+[ USER: Opens http://localhost:30000 ]
+        |
+        v
+[ UI: Main Dashboard / Catalog ] <--(GET /api/cakes)-- [ Catalog Service ]
+        |
+        +--> (Action: Click 'Chocolate' category, Type in Search, Adjust Price)
+        |
+        v
+[ ACTION: Click "+ Add" on a Cake ] --(POST /api/orders/basket/:id)-- [ Order Service ]
+        |
+        v
+[ MODAL: Open Basket ] <--(GET /api/orders/basket/:id)-- Displays UI with MySQL data
+        |
+        +--> (Action: Adjust quantity with +/- buttons)
+        |
+        v
+[ ACTION: Click "Checkout Now" ]
+        |
+        v
+[ MODAL: Checkout Details ]
+        |
+        +--> (Action: Enter Name & Email, Click "Confirm Order")
+        |
+        +--(POST /api/orders/checkout)---> [ Order Service ]
+                                                |
+                                          (Publishes)
+                                                v
+                                        [ RabbitMQ Broker ]
+                                                |
+                                           (Consumes)
+                                                v
+                                    [ Notification Service ]
+                                                |
+[ TOAST: SSE "Event Received!" ] <--(SSE Stream /api/notification)--+
+        |
+        v
+[ ACTION: Click "Reviews" on purchased Cake ]
+        |
+        v
+[ MODAL: Reviews List ] <--(GET /api/rating)-- [ Rating Service ]
+        |
+        +--> (Action: Select 5 Stars, Add Comment, Submit)
+        |
+        +--(POST /api/rating)--> [ Rating Service ]
+        |
+        v
+[ UI: Catalog Card Instantly Updates Average Rating ]
+
+
+================================================================================
+CAKE DELIGHT - GOOGLE DRIVE LINK FOR THE VIDEO
+================================================================================
+
+LINK- https://drive.google.com/file/d/1nyXEjZe5grnV8LYY5nKHGRhLGnh3RoIc/view?usp=sharing
+
+
+================================================================================
+CAKE DELIGHT - GITHUB REPO LINK
+================================================================================
+
+LINK- https://github.com/Raunit2025/capstone_CNM.git

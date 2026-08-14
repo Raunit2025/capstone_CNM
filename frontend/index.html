@@ -90,7 +90,6 @@
                         class="category-pill px-4 py-2 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700/60 transition whitespace-nowrap">Vegan</button>
                 </div>
 
-                <!-- Hidden select element for JS compatibility -->
                 <select id="filter-category" class="hidden">
                     <option value="">All Categories</option>
                     <option value="Chocolate">Chocolate</option>
@@ -130,7 +129,6 @@
 
         <!-- Catalog Grid -->
         <div id="catalog-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Cakes rendered via JS -->
         </div>
     </main>
 
@@ -149,7 +147,6 @@
             </div>
 
             <div id="basket-items" class="space-y-3 max-h-72 overflow-y-auto mb-6 pr-1">
-                <!-- Items injected here -->
             </div>
 
             <div class="border-t border-slate-800 pt-4 flex justify-between items-center mb-6">
@@ -267,7 +264,8 @@
             <h4 id="sse-toast-title" class="font-bold text-sm text-white">Event Received!</h4>
             <p id="sse-toast-message" class="text-xs text-slate-400 mt-0.5"></p>
         </div>
-        <button onclick="closeSseToast()" class="text-slate-500 hover:text-white font-bold ml-2 text-lg">&times;</button>
+        <button onclick="closeSseToast()"
+            class="text-slate-500 hover:text-white font-bold ml-2 text-lg">&times;</button>
     </div>
 
     <script>
@@ -398,7 +396,7 @@
 
         async function addToBasket(event, cakeId, cakeName, price) {
             const btn = event.currentTarget || event.target;
-            
+
             try {
                 await fetch(`${API_BASE}/orders/basket/${USER_ID}`, {
                     method: "POST",
@@ -475,7 +473,6 @@
         async function updateQuantity(cakeId, cakeName, price, currentQuantity, change) {
             const newQuantity = currentQuantity + change;
 
-            // If dropping below 1, remove the item completely
             if (newQuantity <= 0) {
                 await removeFromBasket(cakeId);
                 return;
@@ -485,7 +482,7 @@
                 await fetch(`${API_BASE}/orders/basket/${USER_ID}`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ cakeId, cakeName, price, quantity: change }), // Backend adds this to current total
+                    body: JSON.stringify({ cakeId, cakeName, price, quantity: change }),
                 });
                 await updateBasketUI();
             } catch (error) {
@@ -642,11 +639,11 @@
 
         function listenForRabbitMQEvent(email) {
             const eventSource = new EventSource(`${API_BASE}/notification/stream?email=${encodeURIComponent(email)}`);
-            
+
             eventSource.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 showSseToast(data.title, data.message);
-                
+
                 eventSource.close();
             };
 

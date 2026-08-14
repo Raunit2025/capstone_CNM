@@ -59,6 +59,10 @@ cluster, you MUST establish a port-forward.
 Open a NEW terminal window, run the following command, and LEAVE IT OPEN:
   
   kubectl port-forward service/api-gateway-service 30000:3000
+  
+  (If this one shows error that service NOT Found then run this to directly use the deployment)
+
+  kubectl port-forward deployment/gateway-deployment 30000:3000
 
 * Note: Do not close this terminal while testing the application.
 
